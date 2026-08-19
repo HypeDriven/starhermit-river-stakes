@@ -1,0 +1,14 @@
+{
+  "name": "river-stakes",
+  "version": "1.0.0",
+  "description": "River Stakes — fixed-limit poker in a riverside card salon. Browser game with Three.js presentation, semantic HTML UI, deterministic rules engine, and zero-dependency authoritative server.",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT"
+}
