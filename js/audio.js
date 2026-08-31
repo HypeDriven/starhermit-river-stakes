@@ -23,6 +23,23 @@ function hashString(str) {
 const SOUND_NAMES = ['click', 'card', 'chips', 'check', 'fold', 'raise',
   'win', 'lose', 'turn', 'error', 'notify', 'eliminated'];
 
+// Authored one-shot samples (sfx/<name>.opus, see sfx/manifest.json) mapped to
+// the synthesized events they replace once loaded.
+const SFX_SAMPLES = {
+  click: 'ui-click',
+  card: 'card-deal',
+  chips: 'chip-stack',
+  check: 'felt-tap',
+  fold: 'card-slide',
+  raise: 'raise-clink',
+  win: 'win-cascade',
+  lose: 'lose-thud',
+  turn: 'turn-chime',
+  error: 'error-buzz',
+  notify: 'notify-ding',
+  eliminated: 'elimination-drum',
+};
+
 export class AudioSystem {
   /**
    * @param {{volumes?: object, muted?: boolean}} settings
@@ -38,6 +55,7 @@ export class AudioSystem {
     this._noiseBuf = null;   // white noise source buffer (lazy)
     this._amb = null;        // ambience handle {nodes, timer, gain, stopped}
     this._music = null;      // music handle {timer, nextTime, step, mode, rng, stepDur}
+    this._samples = new Map(); // sfx basename -> {state:'loading'|'ready'|'failed', buffer}
     this._playCounter = 0;
     this.available = typeof window !== 'undefined' &&
       !!(window.AudioContext || window.webkitAudioContext);
@@ -135,12 +153,43 @@ export class AudioSystem {
   // --- sound effects -----------------------------------------------------------
 
   /**
+   * Try to play the authored sample mapped to an event. Lazily fetches,
+   * decodes and caches sfx/<name>.opus (only called post-unlock, so the
+   * context exists). Returns true when a cached sample was started; while a
+   * sample is still loading — or after a fetch/decode failure — returns
+   * false so the caller falls back to synthesis.
+   * @param {string} name one of SOUND_NAMES
+   */
+  _playSample(name) {
+    const file = SFX_SAMPLES[name];
+    if (!file) return false;
+    let rec = this._samples.get(file);
+    if (!rec) {
+      rec = { state: 'loading', buffer: null };
+      this._samples.set(file, rec);
+      fetch(`sfx/${file}.opus`)
+        .then((res) => { if (!res.ok) throw new Error(`sfx ${res.status}`); return res.arrayBuffer(); })
+        .then((data) => this.ctx.decodeAudioData(data))
+        .then((buffer) => { rec.state = 'ready'; rec.buffer = buffer; })
+        .catch(() => { rec.state = 'failed'; });
+      return false;
+    }
+    if (rec.state !== 'ready') return false;
+    const src = this.ctx.createBufferSource();
+    src.buffer = rec.buffer;
+    src.connect(this.buses.sfx);
+    src.start();
+    return true;
+  }
+
+  /**
    * Play a named short synthesized transient.
    * @param {string} name one of SOUND_NAMES
    * @param {{seed?: number}} opts seed selects pitch/variant deterministically
    */
   play(name, { seed } = {}) {
     if (!this.ctx || !SOUND_NAMES.includes(name)) return;
+    if (this._playSample(name)) return;
     const rng = mulberry32(((seed ?? (Date.now() ^ (this._playCounter++ * 2654435761))) >>> 0) || 1);
     const t = this.ctx.currentTime + 0.01;
     const v = (lo, hi) => lo + rng() * (hi - lo); // seeded variant helper

@@ -20,6 +20,7 @@ const MIME = {
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
   '.ico': 'image/x-icon',
+  '.opus': 'audio/ogg',
 };
 
 // --- WebSocket (RFC 6455, hand-rolled) ------------------------------------------

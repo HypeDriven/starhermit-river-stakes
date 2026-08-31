@@ -1,0 +1,74 @@
+[
+  {
+    "name": "ui-click",
+    "seconds": 1,
+    "prompt": "A soft, short UI tick: a single small wooden toggle switch clicked gently once in a quiet room.",
+    "event": "click"
+  },
+  {
+    "name": "card-deal",
+    "seconds": 1,
+    "prompt": "A single playing card flicked face-down onto a green felt poker table, crisp paper snap with soft felt landing.",
+    "event": "card"
+  },
+  {
+    "name": "card-slide",
+    "seconds": 1,
+    "prompt": "Two playing cards sliding face-down across a felt card table, soft paper friction swish trailing off.",
+    "event": "fold"
+  },
+  {
+    "name": "chip-stack",
+    "seconds": 2,
+    "prompt": "A small stack of clay poker chips clinking together as they are gathered and pushed into a pot on a wooden table.",
+    "event": "chips"
+  },
+  {
+    "name": "felt-tap",
+    "seconds": 1,
+    "prompt": "Two quick knuckle taps knocked on a padded felt card table, soft muted low thumps.",
+    "event": "check"
+  },
+  {
+    "name": "raise-clink",
+    "seconds": 2,
+    "prompt": "Clay poker chips being stacked higher one by one, bright ceramic clinks rising in a quick confident cluster.",
+    "event": "raise"
+  },
+  {
+    "name": "win-cascade",
+    "seconds": 3,
+    "prompt": "A cheerful cascade of many clay poker chips pouring into a winner's hands on a wooden table with a bright celebratory shimmer.",
+    "event": "win"
+  },
+  {
+    "name": "lose-thud",
+    "seconds": 2,
+    "prompt": "A single soft low thud of a fist resting down on a wooden table, followed by a short descending muted hum of disappointment.",
+    "event": "lose"
+  },
+  {
+    "name": "turn-chime",
+    "seconds": 1,
+    "prompt": "A small brass hand bell struck gently once, a soft bright chime ringing briefly then fading.",
+    "event": "turn"
+  },
+  {
+    "name": "error-buzz",
+    "seconds": 1,
+    "prompt": "A short low muted electric buzzer buzz, dull and flat, like a gentle wrong-answer signal.",
+    "event": "error"
+  },
+  {
+    "name": "notify-ding",
+    "seconds": 1,
+    "prompt": "A single clear ding from a small metal service counter bell, bright and clean with a short ring.",
+    "event": "notify"
+  },
+  {
+    "name": "elimination-drum",
+    "seconds": 2,
+    "prompt": "A single deep low drum hit with a booming resonance that decays quickly into silence.",
+    "event": "eliminated"
+  }
+]
