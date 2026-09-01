@@ -68,10 +68,17 @@ export class Platform {
   /** Best-effort POST to the host API; resolves to parsed JSON or null. */
   async _post(path, body) {
     if (this._mode !== 'hosted') return null;
+    // Some hosts do not implement the optional presence/activity routes;
+    // after the first 404 we stop calling that route.
+    if (this._unsupported && this._unsupported.has(path)) return null;
     try {
       const res = await fetchWithTimeout(path, {
         method: 'POST', headers: this._headers(), body: JSON.stringify(body),
       }, 3000);
+      if (res.status === 404 && (path === '/api/v1/presence' || path === '/api/v1/activity')) {
+        (this._unsupported || (this._unsupported = new Set())).add(path);
+        return null;
+      }
       return await res.json().catch(() => null);
     } catch { return null; }
   }
@@ -85,8 +92,10 @@ export class Platform {
       const res = await fetchWithTimeout('/api/v1/time', {}, 2000);
       const t1 = Date.now();
       const body = await res.json();
-      if (typeof body.now === 'number') {
-        this._clockOffset = body.now - (t0 + t1) / 2;
+      // Hosts expose the epoch under different keys (`now`, `serverTime`, `epochMs`).
+      const serverMs = Number(body.now ?? body.serverTime ?? body.epochMs);
+      if (Number.isFinite(serverMs)) {
+        this._clockOffset = serverMs - (t0 + t1) / 2;
         this._clockAt = Date.now();
       }
     } catch { /* keep last offset */ }

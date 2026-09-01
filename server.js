@@ -684,6 +684,10 @@ async function handleHttp(req, res) {
 
   if (req.method === 'GET' && pathname === '/api/health') return sendJSON(res, 200, { ok: true });
   if (req.method === 'GET' && pathname === '/api/v1/time') return sendJSON(res, 200, { now: Date.now() });
+  // Optional platform routes: acknowledge best-effort posts, keep nothing.
+  if ((pathname === '/api/v1/presence' || pathname === '/api/v1/activity') && req.method === 'POST') {
+    res.writeHead(204); return res.end();
+  }
   if (pathname.startsWith('/api/')) return sendJSON(res, 404, { error: 'not found' });
 
   if (req.method !== 'GET' && req.method !== 'HEAD') return sendJSON(res, 405, { error: 'method not allowed' });
