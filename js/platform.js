@@ -23,7 +23,8 @@ function defaultWsUrl() {
 
 export class Platform {
   /**
-   * Detect host environment. Same-origin /api/health reachable => 'hosted'.
+   * Detect host environment. /api/v1/time is the ONLY host route guaranteed to
+   * exist, so it is the probe: a round-trip-adjusted answer => 'hosted'.
    * Reads window.__LAUNCH_TOKEN__ if present (held in memory only, NEVER persisted).
    * @returns {Promise<Platform>}
    */
@@ -42,15 +43,23 @@ export class Platform {
       }
     } catch { p._storage = null; }
     p._mode = 'local';
-    try {
-      const res = await fetchWithTimeout('/api/health', {}, 1500);
-      if (res.ok) {
-        const body = await res.json().catch(() => null);
-        if (body && body.ok) p._mode = 'hosted';
-      }
-    } catch { /* offline / no host */ }
     p._clockOffset = 0;
     p._clockAt = 0;
+    try {
+      const t0 = Date.now();
+      const res = await fetchWithTimeout('/api/v1/time', {}, 1500);
+      if (res.ok) {
+        const body = await res.json().catch(() => null);
+        // Hosts expose the epoch under different keys (`now`, `serverTime`, `epochMs`).
+        const serverMs = Number(body && (body.now ?? body.serverTime ?? body.epochMs));
+        if (Number.isFinite(serverMs)) {
+          const t1 = Date.now();
+          p._clockOffset = serverMs - (t0 + t1) / 2;
+          p._clockAt = t1;
+          p._mode = 'hosted';
+        }
+      }
+    } catch { /* offline / no host */ }
     p._presenceTimer = null;
     p._activity = null;
     p._teleLog = [];
@@ -59,28 +68,14 @@ export class Platform {
 
   get mode() { return this._mode; } // 'hosted' | 'local'
 
-  _headers() {
-    const h = { 'Content-Type': 'application/json' };
-    if (this._token) h.Authorization = 'Bearer ' + this._token;
-    return h;
-  }
-
-  /** Best-effort POST to the host API; resolves to parsed JSON or null. */
+  /**
+   * Optional host routes (achievements, boards, presence, activity, telemetry)
+   * are NOT guaranteed to exist once deployed — only /api/v1/time is. Requesting
+   * one and swallowing its 404 still logs a console error, so this is a local
+   * no-op that never issues a request.
+   */
   async _post(path, body) {
-    if (this._mode !== 'hosted') return null;
-    // Some hosts do not implement the optional presence/activity routes;
-    // after the first 404 we stop calling that route.
-    if (this._unsupported && this._unsupported.has(path)) return null;
-    try {
-      const res = await fetchWithTimeout(path, {
-        method: 'POST', headers: this._headers(), body: JSON.stringify(body),
-      }, 3000);
-      if (res.status === 404 && (path === '/api/v1/presence' || path === '/api/v1/activity')) {
-        (this._unsupported || (this._unsupported = new Set())).add(path);
-        return null;
-      }
-      return await res.json().catch(() => null);
-    } catch { return null; }
+    return null;
   }
 
   /** Round-trip-adjusted server time; Date.now() fallback in local mode. */
@@ -153,7 +148,6 @@ export class Platform {
 
   /**
    * Idempotent achievement unlock; returns true if newly unlocked.
-   * Hosted mode additionally POSTs best-effort (failures ignored).
    * @param {string} key stable lowercase identifier
    */
   async unlockAchievement(key) {
@@ -175,8 +169,7 @@ export class Platform {
   // --- leaderboards -----------------------------------------------------------------
 
   /**
-   * Submit a score entry. Local boards in localStorage in local mode;
-   * hosted mode POSTs best-effort and also keeps the local copy.
+   * Submit a score entry. Boards are kept in localStorage only.
    * @param {string} boardId
    * @param {{value:number, ruleset:string, contentVersion:number, seed:number,
    *          assists:string[], durationMs:number, ts?:number, name?:string}} entry
@@ -197,20 +190,13 @@ export class Platform {
   }
 
   /**
+   * Leaderboards are local-only: the remote boards route is not guaranteed to
+   * exist on the host, so this never issues a request.
    * @param {string} boardId
-   * @param {{friendsOnly?: boolean}} opts no-op in local mode
+   * @param {{friendsOnly?: boolean}} opts ignored (no remote boards)
    * @returns {Promise<Array>} sorted desc, top 50
    */
   async getBoard(boardId, { friendsOnly } = {}) {
-    if (this._mode === 'hosted') {
-      try {
-        const q = friendsOnly ? '?friends=1' : '';
-        const res = await fetchWithTimeout(
-          '/api/v1/boards/' + encodeURIComponent(boardId) + q, {}, 2500);
-        const body = await res.json();
-        if (Array.isArray(body.entries)) return body.entries.slice(0, BOARD_CAP);
-      } catch { /* fall through to local copy */ }
-    }
     const boards = this.loadJSON(STORAGE.boards, {});
     const list = Array.isArray(boards[boardId]) ? boards[boardId] : [];
     return list.slice().sort((a, b) => b.value - a.value || a.ts - b.ts).slice(0, BOARD_CAP);
@@ -248,7 +234,8 @@ export class Platform {
 
   /**
    * Anonymous funnel telemetry; whitelisted events only, gated on
-   * settings.telemetryConsent. Hosted: best-effort POST. Local: in-memory ring.
+   * settings.telemetryConsent. Kept in an in-memory ring; never sent over the
+   * network (no host telemetry route is guaranteed to exist).
    */
   telemetry(event, data) {
     if (!TELEMETRY_EVENTS.has(event)) return;
@@ -261,8 +248,8 @@ export class Platform {
         if (['number', 'boolean'].includes(typeof v)) rec.data[k] = v;
       }
     }
-    if (this._mode === 'hosted') this._post('/api/v1/telemetry', rec);
-    else { this._teleLog.push(rec); if (this._teleLog.length > 100) this._teleLog.shift(); }
+    this._teleLog.push(rec);
+    if (this._teleLog.length > 100) this._teleLog.shift();
   }
 }
 
