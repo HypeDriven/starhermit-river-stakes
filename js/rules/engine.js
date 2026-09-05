@@ -561,7 +561,8 @@ export function applyCommand(state, command) {
 /**
  * Deep clone scrubbed for a viewer: other players' hole cards are hidden
  * unless the hand is at showdown/handEnd/terminal. Deck and rng state are
- * never exposed (they would reveal future cards).
+ * never exposed (they would reveal future cards). The seed is deterministic
+ * from the deck, so it is likewise redacted.
  * @param {object} state
  * @param {string} viewerId
  * @returns {object}
@@ -576,6 +577,7 @@ export function getSnapshot(state, viewerId) {
   }
   s.deck = [];
   s.rngState = null;
+  s.seed = null;
   return s;
 }
 

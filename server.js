@@ -271,7 +271,7 @@ class RoomManager {
       finished: false,
       finishedAt: 0,
       timer: null,
-      seed: Number.isInteger(config.seed) ? (config.seed >>> 0) : randomInt(0x100000000),
+      seed: randomInt(0x100000000),
       aiDelayMs: Number.isFinite(config.aiDelayMs) ? config.aiDelayMs : AI_DELAY_MS,
       autoAdvanceMs: Number.isFinite(config.autoAdvanceMs) ? config.autoAdvanceMs : AUTO_ADVANCE_MS,
     };

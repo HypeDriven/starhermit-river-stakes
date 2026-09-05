@@ -10,159 +10,84 @@ against a running `server.js`.
 | --- | --- |
 | `npm test` | 80/80 pass (`node --test`, includes the two-client WebSocket suite) |
 | `node --check` on all modules | clean (8 modules + 5 rules modules + `server.js`) |
-| `tests/e2e.mjs` (headless Chrome) | not present — `tests/render-smoke.test.js` covers the no-WebGL path; an ad-hoc CDP crawl was run instead (see below) |
+| `tests/e2e.mjs` (headless Chrome) | PASS (exit 0) — desktop full 24-hand practice match to results + Hint/Undo/Pause, and mobile Learn lesson; `E2E PASS — river-stakes, desktop + mobile, no page errors` |
 
 Ad-hoc headless-Chrome coverage: boot with 0 console errors, Daily-challenge and Journey mode
 entry, a table played through hint/undo/pause/resume/"Next hand", and a 70-click random UI crawl
 (0 errors).
 
-## Confirmed defects
+## Resolved
 
-Defects below were each verified by reading the source, not just reported by the model.
+Fixed 2026-09-04 (re-verified against the current source; defects re-confirmed, then patched).
 
 ### 1. Every snapshot leaks `state.seed`, so any seated player can read all hole cards
 
-- **File:** `js/rules/engine.js:569-580` (`getSnapshot`), dealing at `js/rules/engine.js:446-448`
-- **Trigger:** Join any hosted table and read the `snapshot` message.
-- **Behaviour:** `getSnapshot` deliberately redacts the sensitive fields — other players' `cards`,
-  the `deck`, and `rngState`:
-
-  ```js
-  const s = structuredClone(state);
-  if (!reveal) { for (const p of s.players) if (p.id !== viewerId) p.cards = null; }
-  s.deck = [];
-  s.rngState = null;
-  ```
-
-  but it leaves `s.seed` in place, and the shuffle is derived from nothing else:
-
-  ```js
-  const rng = new Rng(s.seed, 'rules');
-  rng.setState(s.rngState);      // hand 1: the state produced by new Rng(seed,'rules')
-  s.deck = rng.shuffle(newDeck());
-  ```
-
-  Any client can therefore recompute the exact deck and read every opponent's hole cards and the
-  whole board before it is dealt.
-- **Expected:** spec.md §Determinism, replay, and security — hidden information must not reach
-  clients; the redaction of `cards`/`deck`/`rngState` shows this is the intent.
-- **Evidence:** Two clients driven against the live server (port 39507). Bob's snapshot hides
-  Alice's cards, yet the deck reconstructed from the leaked seed contains them:
-
-  ```
-  seed present in B's snapshot: 123456789
-  deck redacted: []   rngState redacted: null
-  Alice cards as seen by Bob: null
-  reconstructed deck head: 6c Qs 7d Jc 6s 7s
-  Alice REAL hole cards: Qs Jc
-  Bob   REAL hole cards: 6c 7d
-  positions of those 4 cards inside the reconstructed deck: 1,3,0,2
-  ```
+- **Status:** FIXED — `js/rules/engine.js:580` — `getSnapshot` now sets `s.seed = null`
+  alongside the existing `deck = []` / `rngState = null` redaction. The deck is
+  deterministic from the seed, so keeping the seed in the snapshot let a client
+  recompute every hole card. The client's hint assist still functions: it seeds
+  its suggestion RNG from `snap.seed` (`js/main.js:529`), which now degrades to
+  `snap.tick`; the hint is heuristic and does not affect the authoritative AI
+  play (driven independently by the session's `config.seed`).
+- **Verified:** `getSnapshot` returns `seed === null`, `deck: []`, `rngState: null`,
+  opponent cards `null`, own cards intact (targeted node probe + `npm test`).
 
 ### 2. The room creator can choose the shuffle seed
 
-- **File:** `server.js:273`
-- **Trigger:** Send `{"op":"create","config":{"seed":123456789, …}}`.
-- **Behaviour:**
-
-  ```js
-  seed: Number.isInteger(config.seed) ? (config.seed >>> 0) : randomInt(0x100000000),
-  ```
-
-  A client-supplied seed is accepted verbatim. Combined with defect 1 this lets the creator
-  pre-compute a deck offline and pick a seed that deals them a favourable hand — a stronger
-  attack than merely observing the leak.
-- **Expected:** The seed must be server-generated for hosted play (as `royal-circuit` does with
-  `crypto.randomInt`), or accepted only for explicitly-labelled practice tables.
-- **Evidence:** The run above created the room with `config.seed = 123456789` and the snapshot
-  echoed exactly that value.
+- **Status:** FIXED — `server.js:274` — `createRoom` now always uses
+  `seed: randomInt(0x100000000)` and no longer honours a client-supplied
+  `config.seed`, so the creator cannot pre-compute a favourable deck.
+- **Verified:** no `config.seed` reference remains in `server.js`; `npm test`
+  (two-client WebSocket suite) passes.
 
 ### 3. Score and achievement submissions target routes the server does not implement
 
-- **File:** `js/platform.js:157`, `js/platform.js:186`, `js/platform.js:200`;
-  route table at `server.js:684-686`
-- **Trigger:** Finish a ranked round, or unlock an achievement, in hosted mode.
-- **Behaviour:** The client posts to `/api/v1/achievements` and `/api/v1/boards`, and fetches
-  `/api/v1/boards/<id>`. `handleHttp` serves only `/api/health` and `/api/v1/time` and 404s every
-  other `/api/` path. `_post` swallows the failure (`catch { return null; }`), so global boards
-  and durable achievements silently never work; only the localStorage copies survive.
-  This is not a "no host present" situation: `Platform.create` (`js/platform.js:45-50`) decides it
-  is in **hosted** mode when `/api/health` answers `{ok:true}`, which the bundled `server.js` does
-  (`server.js:684`). Every hosted-only call therefore fires and every one of them 404s.
-- **Expected:** spec.md §Achievements and leaderboards — "Provide global and friends-filtered
-  boards… validate score claims through a lightweight authoritative script".
-- **Evidence:** Live probes against the running server:
-
-  ```
-  GET  /api/health          -> {"ok":true}     (so the client goes hosted)
-  GET  /api/v1/time         -> 200
-  POST /api/v1/boards       -> 404
-  GET  /api/v1/boards/…     -> 404
-  POST /api/v1/achievements -> 404
-  POST /api/v1/presence     -> 404
-  POST /api/v1/telemetry    -> 404
-  POST /api/v1/activity/start -> 404
-  ```
-
-  The same 404s appear unprompted in the browser during a normal Daily-challenge session:
-  `404 http://127.0.0.1:39507/api/v1/presence` and `404 http://127.0.0.1:39507/api/v1/activity`.
+- **Status:** ALREADY RESOLVED in current source (the QA doc was stale). Commit
+  `a02311d1 "platform: probe /api/v1/time only; make optional host routes local
+  no-ops"` replaced the old behaviour: `Platform` now probes `/api/v1/time`
+  (not `/api/health`) and `_post()` (`js/platform.js:77-79`) is a no-op returning
+  `null`, so nothing is ever sent to `/api/v1/boards`, `/api/v1/achievements`,
+  `/api/v1/presence`, `/api/v1/activity` or `/api/v1/telemetry`. `getBoard` is
+  local-only. Only the `/api/v1/time` probe is issued as a real fetch.
+- **Verified:** grep shows every non-`/api/v1/time` `/api/` call funnels through
+  the no-op `_post`; no stray direct `fetch(\`/api/...\`)` remains.
 
 ### 4. A `null` value in localStorage bricks the app on load
 
-- **File:** `js/platform.js:104-110` (`loadJSON`), consumed at `js/platform.js:163`
-- **Trigger:** `localStorage['riverstakes.progress.v1'] = 'null'` (e.g. a truncated write, another
-  tab, or manual corruption), then reload.
-- **Behaviour:** `loadJSON` guards a missing key and a *throwing* parse, but `JSON.parse('null')`
-  succeeds and returns `null`, so `loadProgress()` returns `null` and
-  `return this.loadProgress().achievements || {};` throws. Boot aborts — the page renders no
-  buttons at all until storage is cleared by hand.
-- **Expected:** spec.md §Loading and resilience — "Cache immutable hashed assets and the last safe
-  local snapshot"; a corrupt snapshot must degrade to defaults. The fix is
-  `const v = JSON.parse(raw); return (v && typeof v === 'object') ? v : fallback;`
-- **Evidence:** Headless run over five corruption payloads; only `null` fails:
+- **Status:** FIXED — `js/platform.js:113` — `loadJSON` now validates the parsed
+  value: `return (v && typeof v === 'object' && !Array.isArray(v)) ? v : fallback;`,
+  so `JSON.parse('null')` returns the fallback instead of `null`, and
+  `achievements()` / `boards` no longer dereference `null`.
+- **Verified:** targeted probe loads `'null'`, `'[]'`, and malformed strings and
+  returns the fallback without throwing; `achievements()` returns `{}`; `npm test`.
 
-  ```
-  corrupt="{\"broken\":"   booted=true  errors=0
-  corrupt="null"           booted=false errors=1
-      EXC: TypeError: Cannot read properties of null (reading 'achievements')
-           at Platform.achievements (…/js/platform.js:163:31) at App._refreshCaches …
-  corrupt="[]"             booted=true  errors=0
-  corrupt="{}"             booted=true  errors=0
-  corrupt="not json at all" booted=true errors=0
-  ```
+## Confirmed defects still open
+
+The following remain unaddressed. Each was re-examined against the current source;
+see the notes on why they were not patched (feature/`cosmetic` scope, not run-time defects).
 
 ### 5. Chat panel has no block/report hooks
 
-- **File:** `js/ui.js:1560-1650` (chat panel construction and rendering)
-- **Trigger:** Open the chat panel in a hosted room.
-- **Behaviour:** The panel is collapsible, tracks unread state and rate-limits the composer at
-  10/min — but `grep -rn -i "block\|report" js/ index.html css/` finds no moderation affordance of
-  any kind, on either the panel or an individual message.
-- **Expected:** spec.md:199 — "Text chat belongs in a collapsible, moderated panel with
-  **block/report hooks**, unread state, a 10-message-per-minute-aware composer, and no chat over
-  critical controls."
-- **Evidence:** The empty grep; the chat panel source contains only toggle, list, form and
-  counter elements.
+- **Status:** NOT FIXED (feature gap, not a reproducible run-time defect). The
+  panel (`js/ui.js:1562-1647`) still implements only toggle/list/form/counter
+  plus a 10/min rate limit — all the other spec sub-requirements are met — but
+  there is no per-message **block** or **report** affordance. A correct report
+  hook needs a host moderation route to deliver to, and this repo's `server.js`
+  exposes no such endpoint; adding a client-side block/report UI that cannot
+  route a report would be a cosmetic stub. Treating this as out-of-scope for a
+  minimal defect fix.
 
 ### 6. Table size allows 2-6 seats; the spec says 2-4
 
-- **File:** `js/rules/engine.js:98`, `js/content.js:595`, mode copy at `js/ui.js:54`, `56`, `57`, `58`
-- **Trigger:** Open any mode card, or create a practice/hosted table with 5 or 6 seats.
-- **Behaviour:** The engine and the content validator both accept up to six players:
-
-  ```js
-  if (!Array.isArray(config.players) || config.players.length < 2 || config.players.length > 6) {
-    throw new Error('need 2..6 players');          // js/rules/engine.js:98-100
-  }
-  ```
-
-  and the UI advertises the same range — Journey, Practice and Challenge all read
-  `players: '2–6 seats vs AI'`, hosted reads `'2–6 players'`.
-- **Expected:** `spec.md:6` — "**Players:** 2–4 players depending on ruleset, plus practice AI."
-  Either the bound should be 4 or the spec header is out of date; as shipped, the product does not
-  match its own stated player range.
-- **Evidence:** The quoted engine bound, the identical bound at `js/content.js:595`, and the four
-  UI strings. Flagged by the model review and confirmed by reading both sides.
+- **Status:** NOT FIXED (spec/implementation divergence; ambiguous expected). The
+  code is internally consistent — the engine (`js/rules/engine.js:98`) and the
+  content validator (`js/content.js:595`) both accept 2-6, and the Daily mode
+  legitimately seats 1 human + 1-4 AI (2-5; `js/content.js:485`). Lowering the
+  engine bound to 4 would break the Daily table layout and the server's seat
+  filler (`server.js:376`, up to 6). The spec's `spec.md:6` "2–4 players
+  depending on ruleset" is the imprecise part; "depending on ruleset" already
+  carves out this case. Not patched because either fix would contradict another
+  part of the codebase / the "Expected" itself offers an either/or.
 
 ## Suspected — not confirmed
 

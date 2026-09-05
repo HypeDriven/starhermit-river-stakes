@@ -109,7 +109,8 @@ export class Platform {
     try {
       const raw = this._storage ? this._storage.getItem(key) : this._mem.get(key);
       if (raw == null) return fallback;
-      return JSON.parse(raw);
+      const v = JSON.parse(raw);
+      return (v && typeof v === 'object' && !Array.isArray(v)) ? v : fallback;
     } catch { return fallback; }
   }
 
