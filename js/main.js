@@ -608,7 +608,7 @@ class App {
 
   /* ------------------------------------------------------------- results */
 
-  _finishLocal({ forceFail }) {
+  async _finishLocal({ forceFail }) {
     if (!this.game || this.finished) return;
     const snap = this.game.session.snapshot();
     if (!snap.terminal && !forceFail && !this.game.lessonComplete) return;
@@ -632,10 +632,10 @@ class App {
     lt.potsWon += stats.potsWon || 0;
     if (stats.bestHand && !lt.bestHand) lt.bestHand = stats.bestHand;
 
-    const newAchievements = [];
-    const unlock = (key) => {
-      this.platform.unlockAchievement(key).then((fresh) => { if (fresh) newAchievements.push(key); });
-    };
+    // Collect candidate unlocks first, then await them before showResults so
+    // freshly earned achievements actually appear on the results screen.
+    const pendingUnlocks = [];
+    const unlock = (key) => { if (!pendingUnlocks.includes(key)) pendingUnlocks.push(key); };
 
     let stars = 0;
     let progress = null;
@@ -669,13 +669,12 @@ class App {
       this._nextUp = canNext ? JOURNEY[nextIdx] : null;
     } else if (g.mode === 'daily') {
       lt.dailiesPlayed++;
-      this._updateDailyStreak(g.daily.date);
+      this._updateDailyStreak(g.daily.date, unlock);
       const value = standing ? standing.chips : ((summary.goalsContext.finalChips || {})[HUMAN_ID] || 0);
       this.platform.submitScore(`daily:${g.daily.date}`, {
         value, ruleset: 'fixed-limit', contentVersion: CONTENT_VERSION,
         seed: g.daily.seed, assists: [], durationMs: summary.elapsedMs,
       });
-      unlock('steady_current');
       headline = passed ? 'Daily challenge complete!' : (forceFail || 'Daily challenge finished — goals unmet.');
       progress = {
         goalsPassed: goalsEval ? goalsEval.results.filter((r) => r.ok).length : 0,
@@ -708,6 +707,14 @@ class App {
     this.platform.telemetry('round_end', { hands: summary.handsPlayed });
     this.platform.activityEnd();
     this.platform.presenceStop();
+
+    let newAchievements = [];
+    try {
+      const results = await Promise.allSettled(pendingUnlocks.map((key) => this.platform.unlockAchievement(key)));
+      newAchievements = pendingUnlocks.filter((_, i) => results[i].status === 'fulfilled' && results[i].value);
+    } catch { /* an unlock failure must not block the results screen */ }
+    this._refreshCaches();
+    if (this.game !== g || !this.finished) return;
 
     const breakdown = [
       { label: 'Mode', value: g.mode },
@@ -742,14 +749,14 @@ class App {
     this.ui.announce(headline, true);
   }
 
-  _updateDailyStreak(today) {
+  _updateDailyStreak(today, unlock) {
     const d = this.progress.daily || { lastDate: null, streak: 0 };
     if (d.lastDate === today) return;
     const yesterday = new Date(Date.parse(today + 'T00:00:00Z') - 86400000).toISOString().slice(0, 10);
     d.streak = d.lastDate === yesterday ? d.streak + 1 : 1;
     d.lastDate = today;
     this.progress.daily = d;
-    if (d.streak >= 7) this.platform.unlockAchievement('steady_current');
+    if (d.streak >= 7 && typeof unlock === 'function') unlock('steady_current');
   }
 
   retry() {

@@ -161,3 +161,80 @@ every generated daily and passes.
 - Hosted play with 3-6 seats and reconnect-under-load; only the 2-seat path was driven manually
   (the bundled test suite does exercise a 3-seat room with an AI).
 - Touch and gamepad input.
+
+---
+
+# Review pass 2026-09-07 (Kimi)
+
+Second pass over the current source. Prior "Resolved" items re-verified by the
+full suite; four new defects found and fixed. `npm test` 81/81 (incl. one new
+server regression test), `node tests/e2e.mjs` PASS (desktop full match + mobile),
+plus a targeted headless-Chrome scroll check for finding 1.
+
+## Fixed
+
+### A. Screens taller than the viewport could not be scrolled (content cut off)
+
+- **File:** `css/style.css` (`.screen`)
+- **Defect:** `#ui` is `position: fixed; inset: 0` and `.screen` had only
+  `min-height: 100%; overflow-y: auto`. With an auto height the screen grows
+  with its content instead of scrolling, so anything below the viewport fold
+  was unreachable: the 40-stage Journey map on desktop, and the lower mode
+  cards (Practice / Challenge / Hosted) on portrait phones. The old e2e even
+  carried a workaround comment about the unreachable mobile fold.
+- **Fix:** give `.screen` a bounded `height: 100%` so its `overflow-y: auto`
+  actually engages.
+- **Verified:** headless Chrome — journey screen scrollHeight 1425 > 800 and
+  stage 40 reachable after scroll; mobile (390×844) modes screen scrollHeight
+  1710 > 844 and the Hosted card reachable; zero page errors. Full e2e PASS.
+
+### B. Friends could never join a hosted room (ROOM_FULL)
+
+- **Files:** `server.js` (`humanCap`, `startRoom`); config origin `js/main.js`
+  (`hostedCreate`)
+- **Defect:** the app's hosted setup configures every non-host seat as house AI,
+  and `humanCap` returned `intended - aiCount` = 1, so `joinRoom` rejected every
+  friend with ROOM_FULL — contradicting the lobby's own "Share this code with
+  friends so they can take a seat" and the setup note "Empty seats are filled by
+  house AI until friends join". Hosted play was effectively single-player.
+- **Fix:** configured AI seats are now placeholders that yield to humans:
+  `humanCap` is the intended table size, and `startRoom` seats humans first,
+  then configured AI, then filler bots up to the intended size.
+- **Verified:** new `tests/server.test.js` case — host creates a 4-seat
+  all-AI-config room (mirroring `hostedCreate`), a second client joins and is
+  seated, game starts with both humans at a 4-seat table. 81/81 pass.
+
+### C. `steady_current` achievement unlocked on the first daily
+
+- **File:** `js/main.js` (`_finishLocal` daily branch)
+- **Defect:** `unlock('steady_current')` ran unconditionally on any daily
+  completion, while the achievement's own description requires a 7-day streak
+  (tracked in `_updateDailyStreak`). The streak requirement was dead code.
+- **Fix:** removed the unconditional unlock; `_updateDailyStreak` now routes
+  its streak>=7 unlock through the results-screen collector.
+- **Verified:** code inspection + full suite.
+
+### D. Freshly unlocked achievements never appeared on the results screen
+
+- **File:** `js/main.js` (`_finishLocal`)
+- **Defect:** `unlock()` pushed into `newAchievements` inside a `.then()`, but
+  `showResults({ achievements: newAchievements })` ran synchronously before any
+  promise resolved — the array was always empty at render time.
+- **Fix:** `_finishLocal` is now async: candidate keys are collected, then
+  `Promise.all(platform.unlockAchievement(...))` is awaited (failure-safe) so
+  only genuinely new unlocks are rendered.
+- **Verified:** full suite + e2e results screen (8 breakdown rows) still PASS.
+
+## Also resolved this pass
+
+- Added the root-required `LICENSE.md` (PolyForm Noncommercial 1.0.0), byte-identical
+  to the copy used across sibling game repos.
+
+## Notes (not defects)
+
+- The engine intentionally offers `allin` for any positive stack when a raise is
+  legal (a max-raise shove, not strict fixed-limit); `tests/engine.test.js:94`
+  codifies this as designed behavior, so it was left alone.
+- Prior open items 5 (chat block/report hooks — needs a host moderation route)
+  and 6 (2-6 seats vs spec's "2-4 players depending on ruleset") are unchanged;
+  the reasoning in the previous pass still holds.

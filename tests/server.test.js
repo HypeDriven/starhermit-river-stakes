@@ -294,3 +294,55 @@ test('manual advance racing the autoAdvance timer must not wedge the room', asyn
     A.close();
   }
 });
+
+
+test('configured AI seats yield to joining humans (hosted play with friends)', async () => {
+  const A = new TestClient(wsBase + '/ws');
+  const B = new TestClient(wsBase + '/ws');
+  await withTimeout(Promise.all([A.ready, B.ready]), TIMEOUT, 'ws open');
+  try {
+    A.send({ op: 'hello', name: 'Host' });
+    B.send({ op: 'hello', name: 'Guest' });
+    const [wa, wb] = await Promise.all([A.waitFor('welcome'), B.waitFor('welcome')]);
+    const hostId = wa.playerId;
+    const guestId = wb.playerId;
+
+    // Mirror js/main.js hostedCreate(): every non-host seat is configured AI.
+    A.send({
+      op: 'create',
+      config: {
+        smallBlind: 5, bigBlind: 10, chips: 1000, maxHands: 1,
+        aiDelayMs: 20, autoAdvanceMs: 50,
+        players: [
+          { name: 'Host', ai: null },
+          { name: 'Heron', ai: 'normal' },
+          { name: 'Reed', ai: 'normal' },
+          { name: 'Otter', ai: 'normal' },
+        ],
+      },
+    });
+    const lobbyA = await A.waitFor((m) => m.op === 'lobby');
+    assert.ok(lobbyA.code);
+
+    // A friend must be able to take a seat even though every seat was
+    // configured as house AI.
+    B.send({ op: 'join', code: lobbyA.code });
+    const lobbyB = await B.waitFor((m) => m.op === 'lobby');
+    assert.equal(lobbyB.code, lobbyA.code, 'guest joined instead of ROOM_FULL');
+
+    // Both ready -> game starts; both humans are seated, table tops up with AI.
+    A.send({ op: 'ready', ready: true });
+    B.send({ op: 'ready', ready: true });
+    const started = await B.waitFor('started');
+    const ids = started.players.map((p) => p.id);
+    assert.ok(ids.includes(hostId) && ids.includes(guestId), 'both humans seated');
+    assert.equal(started.players.length, 4, 'table keeps the intended size');
+
+    const snap = await B.waitFor((m) => m.op === 'snapshot' && m.snapshot.phase !== 'init');
+    const seated = snap.snapshot.players.map((p) => p.id);
+    assert.ok(seated.includes(hostId) && seated.includes(guestId), 'engine seats both humans');
+  } finally {
+    A.close();
+    B.close();
+  }
+});

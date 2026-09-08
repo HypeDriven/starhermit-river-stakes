@@ -310,8 +310,9 @@ class RoomManager {
   humanCap(room) {
     const list = Array.isArray(room.config.players) ? room.config.players : null;
     if (!list) return 6;
-    const ai = list.filter((p) => p && p.ai).length;
-    return Math.max(1, Math.min(6, list.length) - ai);
+    // Configured AI seats are placeholders that yield to joining humans, so the
+    // cap is the intended table size — not intended minus configured AI.
+    return Math.max(1, Math.min(6, list.length));
   }
 
   joinRoom(conn, code) {
@@ -366,14 +367,20 @@ class RoomManager {
     const chips = Number.isInteger(cfg.chips) && cfg.chips > 0 ? cfg.chips : 1000;
     const humans = [...room.players.values()].filter((p) => !p.isAI);
     const ais = [...room.players.values()].filter((p) => p.isAI);
-    const players = [];
-    for (const p of [...humans, ...ais]) {
-      players.push({ id: p.id, name: p.name, chips, ai: p.isAI ? p.difficulty : null });
-    }
-    // fill empty seats up to the config's intended player count with AI
+    // Humans always keep their seats; configured AI fill what is left, then
+    // filler bots top the table up to the intended size.
     const intended = Array.isArray(cfg.players) ? cfg.players.length : 0;
+    const target = Math.min(6, Math.max(intended, humans.length, 2));
+    const players = [];
+    for (const p of humans) {
+      players.push({ id: p.id, name: p.name, chips, ai: null });
+    }
+    for (const p of ais) {
+      if (players.length >= target) break;
+      players.push({ id: p.id, name: p.name, chips, ai: p.difficulty });
+    }
     let filler = 0;
-    while (players.length < Math.min(6, Math.max(intended, 2)) && players.length < 6) {
+    while (players.length < target) {
       const id = 'ai-fill-' + filler++;
       players.push({ id, name: 'Bot ' + filler, chips, ai: 'normal' });
       room.players.set(id, {
@@ -693,7 +700,9 @@ async function handleHttp(req, res) {
   if (req.method !== 'GET' && req.method !== 'HEAD') return sendJSON(res, 405, { error: 'method not allowed' });
 
   // safe path resolution (no traversal)
-  let rel = decodeURIComponent(pathname);
+  let rel;
+  try { rel = decodeURIComponent(pathname); } catch { return sendJSON(res, 400, { error: 'bad-path' }); }
+  if (rel.split(/[\\/]/).some(p => p.startsWith('.') || ['data', 'node_modules'].includes(p))) return sendJSON(res, 403, { error: 'forbidden' });
   if (rel.endsWith('/')) rel += 'index.html';
   const filePath = path.normalize(path.join(ROOT, rel));
   if (filePath !== ROOT && !filePath.startsWith(ROOT + path.sep)) {
