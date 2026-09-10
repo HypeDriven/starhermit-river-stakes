@@ -42,13 +42,14 @@ const SFX_SAMPLES = {
 
 export class AudioSystem {
   /**
-   * @param {{volumes?: object, muted?: boolean}} settings
+   * @param {{volumes?: object, muted?: boolean, humanId?: string}} settings
    */
   constructor(settings = {}) {
     this.volumes = Object.assign(
       { master: 1, music: 0.6, sfx: 0.9, ambience: 0.55, voice: 0.8 },
       settings.volumes || {});
     this.muted = !!settings.muted;
+    this.humanId = settings.humanId || null;
     this.ctx = null;
     this.masterGain = null;
     this.buses = {};
@@ -276,7 +277,12 @@ export class AudioSystem {
         case 'award': this.play('win', { seed }); break;
         case 'eliminated': this.play('eliminated', { seed }); break;
         case 'handEnd': this.play('notify', { seed }); break;
-        case 'terminal': this.play('win', { seed }); break;
+        case 'terminal': {
+          const term = ev.terminal || {};
+          const won = !this.humanId || term.championId === this.humanId;
+          this.play(won ? 'win' : 'lose', { seed });
+          break;
+        }
         case 'action':
           switch (ev.action) {
             case 'fold': this.play('fold', { seed }); break;

@@ -81,6 +81,7 @@ class App {
         voice: this.settings.audio.voice,
       },
       muted: this.settings.audio.muted,
+      humanId: HUMAN_ID,
     });
 
     this.ui = new UI(document.getElementById('ui'), this._controller());
@@ -793,6 +794,7 @@ class App {
     if (this.hosted && this.hosted.client) { try { this.hosted.client.leave(); } catch {} }
     this.game = null;
     this.hosted = null;
+    this.audio.humanId = HUMAN_ID;
     this.finished = false;
     this._hint = null;
     this._nextUp = null;
@@ -907,6 +909,7 @@ class App {
   _wireHosted(client) {
     if (client._wiredByApp) return;
     client._wiredByApp = true;
+    this.audio.humanId = client.playerId || HUMAN_ID;
     client.on('lobby', (msg) => {
       if (this.hosted) this.hosted.isHost = msg.host === client.playerId;
       this.ui.lobbyUpdate(this._lobbyView(msg));
@@ -990,6 +993,7 @@ class App {
   hostedLeave() {
     if (this.hosted && this.hosted.client) { try { this.hosted.client.leave(); } catch {} }
     this.hosted = null;
+    this.audio.humanId = HUMAN_ID;
     this.ui.showScreen('modes');
   }
 

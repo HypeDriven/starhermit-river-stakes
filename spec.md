@@ -3,7 +3,7 @@
 **Document status:** design specification only; no implementation is included.  
 **Game index:** 86  
 **Genre:** Turn-based card strategy  
-**Players:** 2–4 players depending on ruleset, plus practice AI  
+**Players:** 2–6 seats depending on ruleset, plus practice AI  
 **Targets:** desktop browsers, mobile browsers, landscape and portrait where practical  
 **Rendering direction:** Three.js-first presentation with a fully usable semantic HTML interface layer
 

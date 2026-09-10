@@ -79,7 +79,10 @@ see the notes on why they were not patched (feature/`cosmetic` scope, not run-ti
 
 ### 6. Table size allows 2-6 seats; the spec says 2-4
 
-- **Status:** NOT FIXED (spec/implementation divergence; ambiguous expected). The
+- **Status:** RESOLVED (spec wording) 2026-09-09 — `spec.md:6` now reads
+  "2–6 seats depending on ruleset", matching the engine, validator, Daily
+  layout, and server seat filler. Previously: NOT FIXED (spec/implementation
+  divergence; ambiguous expected). The
   code is internally consistent — the engine (`js/rules/engine.js:98`) and the
   content validator (`js/content.js:595`) both accept 2-6, and the Daily mode
   legitimately seats 1 human + 1-4 AI (2-5; `js/content.js:485`). Lowering the
@@ -238,3 +241,29 @@ plus a targeted headless-Chrome scroll check for finding 1.
 - Prior open items 5 (chat block/report hooks — needs a host moderation route)
   and 6 (2-6 seats vs spec's "2-4 players depending on ruleset") are unchanged;
   the reasoning in the previous pass still holds.
+
+---
+
+# Review pass 2026-09-09
+
+Third pass. Full suite 85/85 (incl. 4 new audio-mapping tests), e2e PASS,
+asset audit PASS.
+
+## Fixed
+
+### E. The `lose` result sting was authored but never played
+
+- **Files:** `js/audio.js` (`mapEvents` terminal case, new `humanId` setting);
+  `js/main.js` (pass `humanId`, swap it for the hosted `client.playerId`,
+  restore on leave/teardown)
+- **Defect:** every terminal event mapped to `'win'`, so `lose-thud.opus` was
+  decoded on unlock but could never sound; a lost match got the win cascade.
+- **Fix:** `mapEvents` now plays `'win'` only when the human is champion
+  (`terminal.championId === humanId`), else `'lose'`; without a `humanId` it
+  keeps the old default. Hosted play sets `audio.humanId` to the server seat id.
+- **Verified:** new `tests/audio.test.js` (win/lose/fallback/action cases);
+  full suite + e2e.
+
+## Also resolved this pass
+
+- `spec.md:6` corrected to "2–6 seats depending on ruleset" (see item 6 above).
