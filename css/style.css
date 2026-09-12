@@ -469,7 +469,9 @@ input[type="range"] { accent-color: var(--accent); min-height: var(--target); mi
 
 /* Toasts */
 .toast-stack {
-  position: fixed; inset-block-start: calc(0.8rem + env(safe-area-inset-top)); inset-inline: 0;
+  /* reserved notification row at the bottom of the table zone, away from the
+     top-centre opponent seat and its revealed cards */
+  position: fixed; inset-block-end: calc(6.5rem + env(safe-area-inset-bottom)); inset-inline: 0;
   display: flex; flex-direction: column; align-items: center; gap: 0.4rem;
   pointer-events: none; z-index: 30;
 }
@@ -580,6 +582,25 @@ input[type="range"] { accent-color: var(--accent); min-height: var(--target); mi
   }
   .drawer-toggle-right { display: none; }
   .rail-left { inset-block-end: calc(0.5rem + env(safe-area-inset-bottom)); }
+  /* seats: compact chrome and positions that clear the top HUD and the tray */
+  .seat { padding: 0.2rem 0.5rem; min-width: 5.5rem; max-width: 8.5rem; font-size: 0.78rem; gap: 0.05rem; }
+  .seat-last { display: none; }
+  .seat-cards { min-height: 2.1em; }
+  /* seats ring the short table zone along its sides, clear of the turn
+     banner (top centre) and the raise tray (bottom) */
+  .seat-pos-0 { left: 84%; top: 70%; }
+  .seat-pos-1 { left: 16%; top: 70%; }
+  .seat-pos-2 { left: 16%; top: 28%; }
+  .seat-pos-3 { left: 38%; top: 14%; }
+  .seat-pos-4 { left: 62%; top: 14%; }
+  .seat-pos-5 { left: 84%; top: 28%; }
+  .seats[data-count="2"] .seat-pos-1 { left: 16%; top: 50%; }
+  .seats[data-count="3"] .seat-pos-1 { left: 16%; top: 50%; }
+  .seats[data-count="3"] .seat-pos-2 { left: 50%; top: 14%; }
+  .seats[data-count="4"] .seat-pos-1 { left: 16%; top: 70%; }
+  .seats[data-count="4"] .seat-pos-2 { left: 50%; top: 14%; }
+  .seats[data-count="4"] .seat-pos-3 { left: 84%; top: 28%; }
+  .toast-stack { inset-block-end: calc(4.4rem + env(safe-area-inset-bottom)); }
 }
 
 /* ------------------------------------------------- motion & contrast */

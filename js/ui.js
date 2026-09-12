@@ -1595,9 +1595,11 @@ export class UI {
   _toast(text, assertive = false) {
     const g = this.g;
     if (g && g.toasts) {
+      // One consolidated notification line: a new message replaces the
+      // previous one instead of stacking over the opponent seats.
       const t = el('div', { class: 'toast', text });
+      while (g.toasts.firstChild) g.toasts.firstChild.remove();
       g.toasts.append(t);
-      while (g.toasts.children.length > 4) g.toasts.firstChild.remove();
       setTimeout(() => { t.classList.add('is-out'); setTimeout(() => t.remove(), 400); }, 4000);
     }
     this.announce(text, assertive);
