@@ -220,6 +220,12 @@ export const STRINGS = {
     heading: 'Profile',
     nameLabel: 'Display name',
     nameSave: 'Save name',
+    accountNote: 'Your table name comes from your StarHermit account.',
+    syncTitle: 'Save status',
+    syncOffline: 'Saved on this device.',
+    syncSynced: 'Synced to your account.',
+    syncSaving: 'Syncing\u2026',
+    syncError: 'Sync failed \u2014 it will retry with your next save.',
     statsTitle: 'Lifetime at the tables',
     statLabels: {
       handsPlayed: 'Hands played',
@@ -257,7 +263,10 @@ export const STRINGS = {
     par: 'Par: {n} hands',
     goals: 'Today\u2019s goals',
     play: 'Play today\u2019s table',
-    rankedNote: 'Daily results are ranked against everyone who plays this seed.',
+    rankedNote: 'One shared deal per day \u2014 your best result is recorded on your profile.',
+    standings: 'River-wide standings',
+    standingsLoading: 'Loading standings\u2026',
+    standingsEmpty: 'No standings available yet.',
   },
   chat: {
     title: 'Chat',
@@ -514,17 +523,22 @@ export class UI {
     for (const id of MODE_ORDER) {
       const meta = s.modes.list[id];
       if (!meta) continue;
-      grid.append(el('div', { class: 'mode-card', role: 'listitem' },
+      // Hosted tables only exist on the game's own dev server; on-platform the
+      // card is shown honestly disabled with the reason.
+      const note = id === 'hosted' ? this._call('hostedNote') : null;
+      grid.append(el('div', { class: 'mode-card' + (note ? ' is-disabled' : ''), role: 'listitem' },
         el('h3', { text: meta.name }),
         el('p', { class: 'mode-rules', text: meta.rules }),
         el('ul', { class: 'mode-meta' },
           el('li', { text: '\u23F1 ' + meta.duration }),
           el('li', { text: '\u2694 ' + meta.players }),
           el('li', { class: 'badge ' + (meta.ranked ? 'badge-ranked' : 'badge-unranked'), text: meta.ranked ? s.common.ranked : s.common.unranked })),
-        el('button', {
-          class: 'btn btn-primary', type: 'button',
-          onclick: () => this.showScreen('setup', { mode: id }),
-        }, s.common.play)));
+        note
+          ? el('p', { class: 'muted', text: note })
+          : el('button', {
+            class: 'btn btn-primary', type: 'button',
+            onclick: () => this.showScreen('setup', { mode: id }),
+          }, s.common.play)));
     }
     return el('section', {},
       this._backBar(s.common.back, 'title'),
@@ -613,6 +627,14 @@ export class UI {
     const s = this.s;
     const d = data || {};
     const goals = (d.goals || []).map((g) => el('li', { text: goalText(g) }));
+    // Read-only platform standings (hosted only); stays hidden when the
+    // platform has no leaderboard or the read fails.
+    const standings = el('div', { class: 'panel', hidden: '' },
+      el('h2', { text: s.daily.standings }),
+      el('p', { class: 'muted', text: s.daily.standingsLoading }));
+    Promise.resolve(this._call('loadStandings'))
+      .then((entries) => this._fillStandings(standings, entries))
+      .catch(() => { if (standings.isConnected) standings.remove(); });
     return el('section', {},
       this._backBar(s.common.back, 'title'),
       el('h1', { text: s.daily.heading, 'data-autofocus': '' }),
@@ -625,7 +647,22 @@ export class UI {
         el('button', {
           class: 'btn btn-primary btn-xl', type: 'button',
           onclick: () => this._call('selectDaily'),
-        }, s.daily.play)));
+        }, s.daily.play)),
+      standings);
+  }
+
+  /** Populate the daily screen's read-only standings panel (no-op when absent). */
+  _fillStandings(panel, entries) {
+    if (!panel.isConnected) return;
+    if (!entries || !entries.length) { panel.remove(); return; }
+    panel.replaceChildren(
+      el('h2', { text: this.s.daily.standings }),
+      el('ol', { class: 'standings-list' }, entries.map((e) =>
+        el('li', {},
+          el('span', { class: 'standings-rank', text: e.rank != null ? e.rank + '. ' : '' }),
+          el('span', { class: 'standings-name', text: e.name || 'Player' }),
+          el('span', { class: 'standings-value', text: String(e.value) })))));
+    panel.hidden = false;
   }
 
   _screen_journey(data) {
@@ -714,25 +751,44 @@ export class UI {
   _screen_profile(data) {
     const s = this.s;
     const d = data || {};
-    const input = el('input', {
-      class: 'input', type: 'text', maxlength: '24', value: d.name || '',
-      'aria-label': s.profile.nameLabel,
-    });
     const statsRows = [];
     const stats = d.stats || {};
     for (const [key, label] of Object.entries(s.profile.statLabels)) {
       if (stats[key] == null) continue;
       statsRows.push(el('tr', {}, el('th', { scope: 'row', text: label }), el('td', { text: String(stats[key]) })));
     }
-    return el('section', {},
-      this._backBar(s.common.back, 'title'),
-      el('h1', { text: s.profile.heading, 'data-autofocus': '' }),
-      el('section', { class: 'panel' },
+    const syncText = {
+      offline: s.profile.syncOffline,
+      synced: s.profile.syncSynced,
+      saving: s.profile.syncSaving,
+      error: s.profile.syncError,
+    }[d.sync] || s.profile.syncOffline;
+    // With an account the table name is the platform nickname (read-only);
+    // locally it stays a free-text display name.
+    let namePanel;
+    if (d.account) {
+      namePanel = el('section', { class: 'panel' },
+        el('p', {}, el('strong', { text: d.name || '' })),
+        el('p', { class: 'muted', text: s.profile.accountNote }));
+    } else {
+      const input = el('input', {
+        class: 'input', type: 'text', maxlength: '24', value: d.name || '',
+        'aria-label': s.profile.nameLabel,
+      });
+      namePanel = el('section', { class: 'panel' },
         el('label', { class: 'field' }, el('span', { text: s.profile.nameLabel }), input),
         el('button', {
           class: 'btn btn-primary', type: 'button',
           onclick: () => this._call('profileSave', { name: input.value.trim() }),
-        }, s.profile.nameSave)),
+        }, s.profile.nameSave));
+    }
+    return el('section', {},
+      this._backBar(s.common.back, 'title'),
+      el('h1', { text: s.profile.heading, 'data-autofocus': '' }),
+      namePanel,
+      el('section', { class: 'panel' },
+        el('h2', { text: s.profile.syncTitle }),
+        el('p', { class: 'muted', text: syncText })),
       el('section', { class: 'panel' },
         el('h2', { text: s.profile.statsTitle }),
         statsRows.length

@@ -42,15 +42,18 @@ Fixed 2026-09-04 (re-verified against the current source; defects re-confirmed, 
 
 ### 3. Score and achievement submissions target routes the server does not implement
 
-- **Status:** ALREADY RESOLVED in current source (the QA doc was stale). Commit
-  `a02311d1 "platform: probe /api/v1/time only; make optional host routes local
-  no-ops"` replaced the old behaviour: `Platform` now probes `/api/v1/time`
-  (not `/api/health`) and `_post()` (`js/platform.js:77-79`) is a no-op returning
-  `null`, so nothing is ever sent to `/api/v1/boards`, `/api/v1/achievements`,
-  `/api/v1/presence`, `/api/v1/activity` or `/api/v1/telemetry`. `getBoard` is
-  local-only. Only the `/api/v1/time` probe is issued as a real fetch.
-- **Verified:** grep shows every non-`/api/v1/time` `/api/` call funnels through
-  the no-op `_post`; no stray direct `fetch(\`/api/...\`)` remains.
+- **Status:** RESOLVED — the dead `_post()` no-op is gone. `js/platform.js` no
+  longer references `/api/v1/boards`, `/api/v1/achievements`,
+  `/api/v1/presence`, `/api/v1/activity` or `/api/v1/telemetry` at all:
+  achievements and boards are local (boards also ride the cloud-saved doc),
+  the presence/activity methods were deleted, and telemetry keeps its
+  consented in-memory ring. On-platform, REST goes through the authenticated
+  `/api/v1/...` platform contract (launch token, profile, cloud saves,
+  read-only leaderboards); the only unauthenticated probe is the dev-server
+  `/api/v1/time` clock check in local mode.
+- **Verified:** `tests/platform.test.js` asserts no network call is made for
+  achievements or boards; grep shows no stray direct fetch to `/api/...`
+  outside the documented contract.
 
 ### 4. A `null` value in localStorage bricks the app on load
 

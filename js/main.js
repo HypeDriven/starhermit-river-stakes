@@ -74,6 +74,21 @@ class App {
       this.progress.lifetime = { hands: 0, handsWon: 0, showdownsWon: 0, potsWon: 0, bestHand: null, journeysCleared: 0, dailiesPlayed: 0 };
     }
 
+    // Hosted: adopt the account nickname and prefer the remote save on conflict.
+    if (this.platform.token) {
+      try {
+        const identity = await this.platform.loadIdentity();
+        if (identity && identity.nickname) {
+          this.profile.name = identity.nickname;
+          this.platform.saveProfile({ name: this.profile.name }); // keep the offline cache coherent
+        }
+      } catch { /* keep the locally cached name */ }
+      try {
+        const remote = await this.platform.cloudLoad();
+        if (remote) this._applyCloudDoc(remote);
+      } catch { /* keep local progress */ }
+    }
+
     this.audio = new AudioSystem({
       volumes: {
         master: this.settings.audio.master, music: this.settings.audio.music,
@@ -101,6 +116,10 @@ class App {
 
     this._applyTheme(this._currentTheme());
     this._wireWindowEvents();
+    this.platform.onSyncStatus(() => {
+      this._refreshCaches();
+      if (this.ui.screen === 'profile') this.ui.showScreen('profile');
+    });
     this._refreshCaches();
     this.ui.showScreen('title');
     this.platform.telemetry('start', { mode: this.platform.mode === 'hosted' ? 1 : 0 });
@@ -126,12 +145,14 @@ class App {
         if (this.game && this.game.session) this.game.session.pause(); // solo sim pauses
         if (this.renderer) this.renderer.setPaused(true);
         this.audio.suspend();
+        this.platform.flushCloud(); // flush the cloud mirror before we go away
       } else {
         if (this.game && this.game.session) this.game.session.resume();
         if (this.renderer) this.renderer.setPaused(false);
         this.audio.resume();
       }
     });
+    window.addEventListener('pagehide', () => this.platform.flushCloud());
     window.addEventListener('resize', () => { if (this.renderer) this.renderer.resize(); });
     window.addEventListener('orientationchange', () => { if (this.renderer) this.renderer.resize(); });
 
@@ -189,6 +210,8 @@ class App {
     this.ui.cache.achievements = { list: ACHIEVEMENTS, unlocked: this.platform.achievements() };
     this.ui.cache.profile = {
       name: this.profile.name,
+      account: !!(this.platform && this.platform.token),
+      sync: this.platform ? this.platform.syncStatus : 'offline',
       stats: {
         handsPlayed: lt.hands, handsWon: lt.handsWon, showdownsWon: lt.showdownsWon,
         potsWon: lt.potsWon, bestHand: lt.bestHand,
@@ -202,7 +225,37 @@ class App {
 
   _saveProgress() {
     this.platform.saveProgress(this.progress);
+    this._persistCloud();
     this._refreshCaches();
+  }
+
+  /**
+   * Merge a cloud-saved doc over the local state. On conflict the remote copy
+   * wins; localStorage remains the offline cache.
+   */
+  _applyCloudDoc(doc) {
+    if (doc.progress && typeof doc.progress === 'object') {
+      this.progress = mergeDeep(this.progress, doc.progress);
+      this.platform.saveJSON(STORAGE.progress, this.progress);
+    }
+    if (doc.boards && typeof doc.boards === 'object') {
+      this.platform.saveJSON(STORAGE.boards, doc.boards);
+    }
+    if (!this.platform.userId && doc.profile && typeof doc.profile.name === 'string' && doc.profile.name) {
+      this.profile.name = doc.profile.name; // no account identity: restore the cached name
+    }
+  }
+
+  /** Queue a cloud mirror of the save doc (debounced; no-op without a token). */
+  _persistCloud() {
+    if (!this.platform || !this.platform.token) return;
+    this.platform.scheduleCloudSave({
+      v: SAVE_VERSION,
+      savedAt: Date.now(),
+      progress: this.progress,
+      boards: this.platform.loadJSON(STORAGE.boards, {}),
+      profile: { name: this.profile.name },
+    });
   }
 
   /* ------------------------------------------------------------- modes */
@@ -233,14 +286,36 @@ class App {
       hostedReady: (b) => this.hostedReady(b),
       hostedChat: (text) => this.hostedChat(text),
       hostedLeave: () => this.hostedLeave(),
+      hostedNote: () => this.hostedNote(),
+      loadStandings: () => this.platform.getGlobalBoard({ pageSize: 10 }),
     };
+  }
+
+  /**
+   * Why hosted tables are unavailable (string), or null when they work.
+   * On-platform the game's own-server WS protocol does not exist; hosted
+   * tables stay available only on the local dev server.
+   */
+  hostedNote() {
+    if (this.platform.token) {
+      return 'Online tables are not available on this platform — take a seat against the house AI instead.';
+    }
+    if (!this.platform.localServer) {
+      return 'Requires the game server: run `npm start` and open the served page.';
+    }
+    return null;
   }
 
   play(mode, options) {
     if (mode === 'journey') { this.ui.showScreen('journey'); return; }
     if (mode === 'challenge') { this.ui.showScreen('challenges'); return; }
     if (mode === 'daily') { this.ui.showScreen('daily', this._daily); return; }
-    if (mode === 'hosted') { this.ui.showScreen('setup', { mode: 'hosted' }); return; }
+    if (mode === 'hosted') {
+      const note = this.hostedNote();
+      if (note) { this.ui.announce(note, true); return; }
+      this.ui.showScreen('setup', { mode: 'hosted' });
+      return;
+    }
     if (mode === 'learn') {
       const idx = this._lessonIndex(options);
       this._startLearn(idx);
@@ -375,8 +450,6 @@ class App {
     this._applyTheme(ctx.theme);
     this.audio.startAmbience(ctx.theme.id);
     this.audio.startMusic('game');
-    this.platform.activityStart(ctx.mode);
-    this.platform.presenceStart({ mode: ctx.mode });
     this.ui.showScreen('game');
     session.start();
     if (ctx.mode === 'challenge' && ctx.constraint && ctx.constraint.type === 'speedTarget') {
@@ -676,11 +749,12 @@ class App {
         value, ruleset: 'fixed-limit', contentVersion: CONTENT_VERSION,
         seed: g.daily.seed, assists: [], durationMs: summary.elapsedMs,
       });
+      this._persistCloud();
       headline = passed ? 'Daily challenge complete!' : (forceFail || 'Daily challenge finished — goals unmet.');
       progress = {
         goalsPassed: goalsEval ? goalsEval.results.filter((r) => r.ok).length : 0,
         goalsTotal: g.goals.length,
-        text: `Score submitted for ${g.daily.date}: ${value} chips.`,
+        text: `Result recorded for ${g.daily.date}: ${value} chips.`,
       };
     } else if (g.mode === 'challenge') {
       if (passed) {
@@ -706,8 +780,6 @@ class App {
     if (lt.hands >= 1000) unlock('thousand_hands');
     this._saveProgress();
     this.platform.telemetry('round_end', { hands: summary.handsPlayed });
-    this.platform.activityEnd();
-    this.platform.presenceStop();
 
     let newAchievements = [];
     try {
@@ -798,8 +870,6 @@ class App {
     this.finished = false;
     this._hint = null;
     this._nextUp = null;
-    this.platform.activityEnd();
-    this.platform.presenceStop();
   }
 
   /* ------------------------------------------------------------- settings & profile */
@@ -807,6 +877,7 @@ class App {
   saveSettings(patch) {
     mergeDeep(this.settings, patch);
     this.platform.saveSettings(this.settings);
+    this._persistCloud();
     const a = this.settings.audio;
     this.audio.setVolume('master', a.master);
     this.audio.setVolume('music', a.music);
@@ -837,9 +908,15 @@ class App {
   }
 
   profileSave(p) {
+    // On-platform the table name comes from the StarHermit account nickname.
+    if (this.platform.token) {
+      this.ui.announce('Your table name comes from your StarHermit account.', false);
+      return;
+    }
     if (p && p.name) {
       this.profile.name = p.name.slice(0, 24);
       this.platform.saveProfile({ name: this.profile.name });
+      this._persistCloud();
       this._refreshCaches();
       this.ui.announce('Profile saved.', false);
       this.audio.play('notify');
@@ -849,8 +926,8 @@ class App {
   /* ------------------------------------------------------------- hosted play */
 
   async _hostedConnect() {
-    if (this.platform.mode !== 'hosted') {
-      throw new Error('Hosted play needs the game server. Run `npm start` and open the served page.');
+    if (!this.platform.localServer) {
+      throw new Error('Hosted tables need the game server. Run `npm start` and open the served page.');
     }
     if (this.hosted && this.hosted.client) return this.hosted.client;
     const client = new HostedClient({ name: this.profile.name });
@@ -919,8 +996,6 @@ class App {
       this._applyTheme(this._currentTheme());
       this.audio.startMusic('game');
       this.audio.startAmbience(this._currentTheme().id);
-      this.platform.activityStart('hosted');
-      this.platform.presenceStart({ mode: 'hosted' });
       this.ui.showScreen('game');
     });
     client.on('snapshot', (msg) => this._hostedSnapshot(msg));
@@ -1008,8 +1083,6 @@ class App {
       label: `#${s.place} ${s.name}`, value: `${s.chips} chips`,
     }));
     this.audio.startMusic('results');
-    this.platform.activityEnd();
-    this.platform.presenceStop();
     this.ui.showResults({
       headline, breakdown,
       progress: { text: t.reason === 'maxHands' ? 'Hand limit reached.' : 'Last player standing.' },

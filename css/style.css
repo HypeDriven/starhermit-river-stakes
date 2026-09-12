@@ -227,6 +227,13 @@ input[type="range"] { accent-color: var(--accent); min-height: var(--target); mi
 .mode-rules { color: var(--ink-dim); margin: 0; flex: 1; }
 .mode-meta { list-style: none; padding: 0; margin: 0.4rem 0; display: flex; flex-wrap: wrap; gap: 0.6rem; font-size: 0.9rem; color: var(--ink-dim); }
 .mode-card .btn { align-self: flex-start; }
+.mode-card.is-disabled { opacity: 0.75; }
+.mode-card.is-disabled .muted { margin: 0; }
+
+/* Read-only standings (daily challenge) */
+.standings-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.25rem; max-width: 44ch; }
+.standings-list li { display: flex; gap: 0.4rem; justify-content: space-between; font-variant-numeric: tabular-nums; }
+.standings-value { color: var(--ink-dim); }
 
 /* Setup / lists */
 .card-list { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(min(16rem, 100%), 1fr)); padding: 0; }

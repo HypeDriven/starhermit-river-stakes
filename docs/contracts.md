@@ -232,28 +232,43 @@ export function evaluateGoals(goals, summary /*Session.summary()*/, humanId) -> 
 export function validateAll() -> { errors: string[] }   // structural validation of all content
 ```
 
-## js/platform.js — host integration with offline fallback
+## js/platform.js — StarHermit integration with offline fallback
 
 ```js
 export class Platform {
   static async init() -> Platform
-  // Detects host: same-origin /api reachable => 'hosted', else 'local'. Reads launch token
-  // from window.__LAUNCH_TOKEN__ if present; NEVER persists tokens to storage.
+  // Reads the launch token from the URL fragment `#game_token=<jwt>` (once, then
+  // stripped; query fallbacks localhost-only) and decodes sub/game_scope.
+  // 'hosted' iff a token was read; otherwise probes the game's own dev server
+  // (/api/v1/time) for clock sync + local multiplayer (localServer flag).
+  // NEVER persists tokens to storage.
   get mode()              // 'hosted' | 'local'
-  async serverNow()       // round-trip-adjusted server time via GET /api/v1/time; Date.now() fallback
+  get localServer         // dev server reachable (local mode multiplayer + clock)
+  get token() / get userId() / get gameKey()   // in-memory only; null in local mode
+  async api(path, {method, body})              // same-origin REST with Authorization: Bearer
+  // 45-min token refresh: POST /api/v1/games/{slug}/launch-token; ~60 s retry
+  async loadIdentity()    // GET /api/v1/users/{sub}/profile -> {id, nickname}; "Player "+id8 fallback (never /api/v1/me, never usernames)
+  async nicknameFor(userId)                    // profile-helper nickname resolution (cached)
+  get syncStatus()        // 'offline' | 'synced' | 'saving' | 'error'; onSyncStatus(fn)
+  async cloudLoad()       // GET /api/v1/me/cloud-saves/{slug} -> doc | null (404 = none); remote wins on conflict
+  scheduleCloudSave(doc)  // PUT mirror, debounced ~2 s (stored-zip + base64); flushCloud() on pagehide/visibilitychange
+  async serverNow()       // round-trip-adjusted dev-server time via GET /api/v1/time; Date.now() fallback
   async utcToday()        // 'YYYY-MM-DD' using serverNow
   loadJSON(key, fallback) / saveJSON(key, value)     // localStorage-backed, version-checked
   // settings/profile/progress convenience wrappers using STORAGE keys
-  async unlockAchievement(key)  // idempotent; local store in local mode
+  async unlockAchievement(key)  // idempotent; local only (rides in the cloud doc)
   achievements() -> {key: unlockedAtTs}
-  async submitScore(boardId, entry) // entry:{value, ruleset, contentVersion, seed, assists, durationMs}; local boards in local mode
-  async getBoard(boardId, {friendsOnly}={}) -> [entries]
-  presenceStart(details) / presenceStop()   // throttled heartbeats in hosted mode; no-op locally
-  activityStart(mode) / activityEnd()       // playtime pairing; no-op locally
+  async submitScore(boardId, entry) // personal best to localStorage + cloud doc; NEVER a network submit
+  async getBoard(boardId) -> [entries]   // local records only
+  async gameInfo()        // GET /api/v1/games/{slug} -> {leaderboardId, me} | null (cached)
+  async getGlobalBoard({friendsOnly, page, pageSize}) // read-only entries, nicknames resolved; null without leaderboardId
+  // No presence/activity/telemetry network calls: the platform exposes none reachable
+  // by launch tokens; telemetry() keeps a consented in-memory ring only.
   telemetry(event, data) // only: 'start','tutorial_step','round_end','retry','settings_change','error'; no-op without consent
 }
 export class HostedClient {
-  // WebSocket to same-origin /ws. JSON messages.
+  // WebSocket JSON rooms on the game's OWN dev server (npm start) — never used
+  // on-platform, where hosted tables are honestly disabled (main.js hostedNote()).
   constructor({ name })
   async connect() -> { playerId, serverTime }
   createRoom(config) / joinRoom(code) / rejoin(sessionId, token)

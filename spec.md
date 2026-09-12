@@ -185,27 +185,26 @@ No module may mutate rules state except through a validated command. Rendering c
 
 ### Packaging and launch
 - Ship a browser distribution with `starhermit.txt` at its root, `name=River Stakes`, and `launch=index.html`. Keep source files, secrets, design documents, and source maps outside the uploaded distribution.
-- Read the game scope from the short-lived launch token rather than hard-coding a slug. Use same-origin `/api` and `/ws` routes when hosted. Refresh account tokens through the host shell; never persist access or launch tokens in local storage.
-- Synchronize countdowns and daily boundaries with `GET /api/v1/time` using round-trip-adjusted offset. Treat rate limits and structured `{"error":"..."}` responses as recoverable UI states.
+- Read the launch token from the URL fragment `#game_token=<jwt>` (once, then stripped; query fallbacks are local-dev only) and take the game scope from its `game_scope` claim rather than hard-coding a slug. Send `Authorization: Bearer` on every REST call; refresh via `POST /api/v1/games/{slug}/launch-token` every 45 min. Never persist access or launch tokens in local storage.
+- Synchronize countdowns and daily boundaries with `GET /api/v1/time` (round-trip-adjusted) on the game's own dev server; on-platform there is no server-time route, so daily boundaries fall back to local time. Treat rate limits and structured `{"error":"..."}` responses as recoverable UI states.
 
 ### Identity, profile, presence, and preferences
-- Support guest practice locally, then offer account sign-in for durable progress. Use the profile display name and avatar only where identity is useful, honor profile privacy, and send throttled presence heartbeats while actively playing.
+- Support guest practice locally, then adopt the account automatically when launched with a token: the table name is the account nickname from `GET /api/v1/users/{sub}/profile` (never `/api/v1/me`, never usernames; "Player "+id8 fallback) and is read-only in-game. The platform has no per-game presence endpoint reachable by launch tokens, so no presence heartbeats are sent.
 - Store accessibility, audio, graphics tier, tutorial completion, camera preference, and rules options through per-game settings. Declare desktop action bindings and read player overrides; touch mappings remain responsive UI controls.
-- Cloud-save progression as a versioned, checksummed document. Resolve conflicts by preserving both snapshots and asking the player when neither is a strict descendant. Never place credentials or private chat in saves.
+- Cloud-save progression as a versioned document: one slot at `GET/PUT /api/v1/me/cloud-saves/{slug}` (zip+base64), debounced ~2 s with a pagehide flush and a visible sync status. The remote copy wins on conflict; localStorage remains the offline cache. Never place credentials or private chat in saves.
 
 ### Discovery, activity, and social layer
-- Start and end launch activity so playtime is accurate. Surface entitlement or catalog state only in host-owned chrome; the game itself must remain playable without promotional interruption.
+- The platform exposes no per-game activity/presence/telemetry routes reachable by launch tokens, so the game reports none; playtime stays local. Surface entitlement or catalog state only in host-owned chrome; the game itself must remain playable without promotional interruption.
 - Provide a compact friends panel for score comparison and invitations where appropriate. Respect presence visibility and do not expose a hidden or private profile through game UI.
-- Use friend invitations and the game-invite inbox for private sessions. Text chat belongs in a collapsible, moderated panel with block/report hooks, unread state, a 10-message-per-minute-aware composer, and no chat over critical controls.
+- Use friend invitations and the game-invite inbox for private sessions (future; on-platform hosted tables are honestly disabled until they migrate to realtime rooms). Text chat belongs in a collapsible, moderated panel with block/report hooks, unread state, a 10-message-per-minute-aware composer, and no chat over critical controls.
 - Offer voice rooms only as an explicit opt-in after joining a compatible conversation. Default muted, expose speaking/mute indicators, and provide leave/report controls. Core rules must never require voice.
 
 ### Achievements and leaderboards
-- Declare a small static achievement set: first completion, mechanic mastery, a sustained streak, a difficult content milestone, and an accessibility-neutral long-term goal. Keys are stable, lowercase identifiers; unlocks are idempotent.
-- Provide global and friends-filtered boards for the primary metric plus a fair daily/weekly board. Include ruleset, content version, seed, assists, and duration with every submission; reject impossible or stale-version scores.
-- Competitive outcomes, rating changes, and achievement unlocks are server-authoritative. Never accept a client-supplied winner, score, hidden state, or elapsed time as truth.
+- Declare a small static achievement set: first completion, mechanic mastery, a sustained streak, a difficult content milestone, and an accessibility-neutral long-term goal. Keys are stable, lowercase identifiers; unlocks are idempotent. A pure browser game has no server-authoritative unlock path: unlocks stay local and ride in the cloud-saved doc.
+- Leaderboards are platform-owned and read-only: read `GET /api/v1/games/{slug}` for the `leaderboardId`, then `GET /api/v1/leaderboards/{id}/entries` (entries rendered with nicknames from the profile helper; no standings panel when there is no `leaderboardId`). Personal bests (ruleset, content version, seed, assists, duration attached) stay in localStorage + the cloud mirror; the client never submits scores.
 
 ### Sessions and transport
-- Use the shared Games API for invitations, nearest-rating matchmaking where competitive, practice sessions against deterministic AI where suitable, session summaries, deadlines, move submission, and replays.
+- Multiplayer runs on the game's own authoritative dev server (`npm start`, JSON rooms over `/ws`) and is honestly disabled on-platform, where that protocol does not exist; solo play against the house AI is identical in both environments. A future migration would use StarHermit realtime rooms (host-routed) for lobby/matchmaking.
 - Run rules in a sandboxed authoritative JavaScript Game Script. Persist compact JSON state, whitelist public messages, reject out-of-turn or malformed input, use platform time for deadlines, and end through the authoritative result contract.
 - Use gameplay WebSocket events for immediate move/result updates, but make REST session detail the reconnect source of truth. The peer relay is unnecessary for the initial turn-based design.
 
