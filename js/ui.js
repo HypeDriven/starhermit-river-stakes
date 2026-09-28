@@ -1,5 +1,8 @@
 // River Stakes — DOM UI layer (screens, HUD, modals, accessibility)
 
+import { CATEGORIES, PRESETS, choosePreset, defaultGraphics, presetTier, resolve as resolveGraphics } from './gfx.js';
+import { gfxStrings } from './gfx-strings.js';
+
 /**
  * All user-facing text lives here, grouped by screen/purpose, so the game can
  * be localized later by swapping this object (pass opts.strings to UI).
@@ -930,12 +933,9 @@ export class UI {
         slider(s.settings.ambience, st.audio.ambience, v => save({ audio: { ambience: v } }), 'set-ambience'),
         slider(s.settings.voice, st.audio.voice, v => save({ audio: { voice: v } }), 'set-voice'),
         checkboxEl('set-muted', s.settings.muted, st.audio.muted, v => save({ audio: { muted: v } }))),
-      el('section', { class: 'panel' },
-        el('h2', { text: s.settings.graphics }),
-        el('label', { class: 'field' }, el('span', { text: s.settings.tier }),
-          selectEl('set-tier',
-            [['low', s.settings.tierLow], ['medium', s.settings.tierMedium], ['high', s.settings.tierHigh]],
-            v => save({ graphics: { tier: v } }), st.graphics.tier)),
+      el('section', { class: 'panel gfx-panel', id: 'gfx-settings', 'data-gfx-section': '' },
+        el('h2', { text: gfxStrings().heading }),
+        this._buildGraphicsControls(save),
         (() => {
           const themes = this._call('listThemes') || [];
           if (!themes.length) return null;
@@ -970,6 +970,67 @@ export class UI {
           onclick: () => this._call('play', 'learn', { replay: true }),
         }, s.settings.tutorialReplay),
         el('p', { class: 'muted', text: s.settings.tutorialReplayNote })));
+  }
+
+  /**
+   * Graphics section: quality preset, render scale, per-effect overrides, adaptive resolution,
+   * frame-rate readout and a "GPU · cost · pixels" summary. Rebuilt in place after each change
+   * so "From preset (…)" labels follow the current preset.
+   */
+  _buildGraphicsControls(save) {
+    const t = gfxStrings();
+    const wrap = el('div', { class: 'gfx-controls' });
+    const render = (focusId) => {
+      const cur = { ...defaultGraphics(), ...(this.settings.graphics && this.settings.graphics.gfx) };
+      const info = this._call('graphicsInfo', t.describe) || {};
+      const detected = info.detected || 'balanced';
+      const r = info.resolved || resolveGraphics(cur, detected);
+      const commit = (next, id) => {
+        save({ graphics: { gfx: next } });
+        render(id);
+      };
+      const preset = selectEl('gfx-preset',
+        [['auto', fmt(t.auto, { tier: t.presets[detected] })], ...PRESETS.map(p => [p, t.presets[p]])],
+        v => commit(choosePreset(cur, v), 'gfx-preset'), PRESETS.includes(cur.preset) ? cur.preset : 'auto');
+      preset.dataset.gfx = 'preset';
+
+      const pct = Math.round(Math.min(2, Math.max(0.5, Number(cur.render_scale) || 1)) * 100);
+      const scale = el('input', {
+        type: 'range', min: '50', max: '200', step: '5', value: String(pct), id: 'gfx-scale',
+        'aria-label': t.renderScale, 'data-gfx': 'render_scale',
+      });
+      const scaleOut = el('output', { class: 'slider-value gfx-scale-value', text: pct + '%' });
+      scale.addEventListener('input', () => { scaleOut.textContent = scale.value + '%'; });
+      scale.addEventListener('change', () => commit({ ...cur, render_scale: Number(scale.value) / 100 }, 'gfx-scale'));
+
+      const cats = Object.entries(CATEGORIES).map(([cat, tiers]) => {
+        const from = fmt(t.fromPreset, { tier: t.tiers[presetTier(r.preset, cat)] || presetTier(r.preset, cat) });
+        const sel = selectEl('gfx-' + cat, [['preset', from], ...tiers.map(x => [x, t.tiers[x] || x])],
+          v => commit({ ...cur, [cat]: v }, 'gfx-' + cat), cur[cat] || 'preset');
+        sel.dataset.gfx = cat;
+        return el('label', { class: 'field gfx-field' }, el('span', { text: t.categories[cat] }), sel);
+      });
+
+      const gpu = info.gpu || t.unknownGpu;
+      const summary = el('p', { class: 'gfx-summary muted', id: 'gfx-summary', 'aria-live': 'polite' },
+        info.no3d ? t.no3d : [gpu, info.summary].filter(Boolean).join(' · '));
+      const note = el('p', { class: 'gfx-note', id: 'gfx-post-note', role: 'note', hidden: !info.postFailed }, t.postUnavailable);
+
+      wrap.textContent = '';
+      wrap.append(
+        el('label', { class: 'field' }, el('span', { text: t.quality }), preset),
+        el('label', { class: 'field field-slider gfx-scale-field' }, el('span', { text: t.renderScale }), scale, scaleOut),
+        el('div', { class: 'gfx-grid' }, cats),
+        checkboxEl('gfx-adaptive', t.adaptive, cur.adaptive !== false, v => commit({ ...cur, adaptive: v }, 'gfx-adaptive')),
+        checkboxEl('gfx-fps', t.showFps, !!cur.show_fps, v => commit({ ...cur, show_fps: v }, 'gfx-fps')),
+        summary, note);
+      if (focusId) {
+        const f = wrap.querySelector('#' + focusId);
+        if (f) f.focus({ preventScroll: true });
+      }
+    };
+    render(null);
+    return wrap;
   }
 
   _screen_results() {
@@ -1880,7 +1941,7 @@ export class UI {
 function defaultSettings() {
   return {
     audio: { master: 1, music: 0.7, effects: 0.9, ambience: 0.6, voice: 0.8, muted: false },
-    graphics: { tier: 'medium' },
+    graphics: { tier: 'medium', gfx: defaultGraphics() },
     accessibility: {
       reducedMotion: false, highContrast: false, palette: 'default',
       textSize: 'normal', leftHanded: false, hintMode: 'toggle', haptics: true,

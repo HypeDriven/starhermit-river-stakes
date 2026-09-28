@@ -3,6 +3,7 @@ import { Platform, HostedClient } from './platform.js';
 import { UI } from './ui.js';
 import { AudioSystem } from './audio.js';
 import { Renderer } from './render.js';
+import { defaultGraphics, resolve as resolveGraphics } from './gfx.js';
 import { Session } from './session.js';
 import {
   THEMES, TUTORIAL, JOURNEY, CHALLENGES, ACHIEVEMENTS,
@@ -37,7 +38,7 @@ function mergeDeep(target, src) {
 
 const DEFAULT_SETTINGS = {
   audio: { master: 1, music: 0.7, effects: 0.9, ambience: 0.6, voice: 0.8, muted: false },
-  graphics: { tier: 'medium', theme: 'emberdusk' },
+  graphics: { tier: 'medium', theme: 'emberdusk', gfx: defaultGraphics() },
   accessibility: {
     reducedMotion: false, highContrast: false, palette: 'default',
     textSize: 'normal', leftHanded: false, hintMode: 'toggle', haptics: true,
@@ -108,11 +109,12 @@ class App {
     try {
       this.renderer = await Renderer.create(canvas, {
         theme: this._currentTheme(),
-        quality: this.settings.graphics.tier,
+        graphics: this.settings.graphics.gfx,
         reducedMotion: this.settings.accessibility.reducedMotion,
       });
     } catch { this.renderer = null; }
     if (!this.renderer) this._show3DFallbackNotice();
+    this._applyGraphicsAttrs();
 
     this._applyTheme(this._currentTheme());
     this._wireWindowEvents();
@@ -276,6 +278,7 @@ class App {
       selectChallenge: (id) => this.selectChallenge(id),
       selectDaily: () => this.selectDaily(),
       saveSettings: (patch) => this.saveSettings(patch),
+      graphicsInfo: (words) => this.graphicsInfo(words),
       profileSave: (p) => this.profileSave(p),
       tutorialAck: () => this.tutorialAck(),
       listLessons: () => TUTORIAL.map((l, i) => ({ id: l.id, index: i, title: `${i + 1}. ${l.title}` })),
@@ -886,11 +889,26 @@ class App {
     this.audio.setVolume('voice', a.voice);
     this.audio.setMuted(a.muted);
     if (this.renderer) {
-      this.renderer.setQuality(this.settings.graphics.tier);
+      if (patch.graphics && patch.graphics.gfx) this.renderer.setGraphics(this.settings.graphics.gfx);
       this.renderer.setReducedMotion(this.settings.accessibility.reducedMotion);
     }
+    if (patch.graphics && patch.graphics.gfx) this._applyGraphicsAttrs();
     if (patch.graphics && patch.graphics.theme) this.setTheme(patch.graphics.theme);
     this.platform.telemetry('settings_change', {});
+  }
+
+  /** Resolved graphics tiers on <html> (DOM board detail + test hooks), with or without WebGL. */
+  _applyGraphicsAttrs() {
+    const g = this.renderer ? this.renderer.q : resolveGraphics(this.settings.graphics.gfx, 'balanced');
+    const root = document.documentElement;
+    root.dataset.gfxPreset = g.preset;
+    root.dataset.gfxDetail = g.detail;
+  }
+
+  /** Settings panel data: GPU, detected preset, resolved tiers, cost summary. */
+  graphicsInfo(words) {
+    if (this.renderer) return this.renderer.graphicsInfo(words);
+    return { gpu: '', detected: 'balanced', resolved: resolveGraphics(this.settings.graphics.gfx, 'balanced'), summary: '', no3d: true, postFailed: false };
   }
 
   setTheme(id) {

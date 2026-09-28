@@ -133,6 +133,59 @@ async function clickCardButton(page, hasText) {
 const waitResults = (page) =>
   page.waitForSelector('.screen-results .results-panel h1', { timeout: 15000 });
 
+// ---------- Graphics settings through the visible Settings screen ----------
+const gfxState = (page) => page.evaluate(() => ({
+  preset: document.documentElement.dataset.gfxPreset,
+  canvas: document.getElementById('gl').dataset.gfxPreset,
+  bloom: document.getElementById('gfx-bloom')?.value,
+  presetSel: document.getElementById('gfx-preset')?.value,
+  summary: document.getElementById('gfx-summary')?.textContent || '',
+}));
+
+async function openGraphics(page) {
+  await page.getByRole('button', { name: 'Settings', exact: true }).click();
+  await page.waitForSelector('#gfx-settings #gfx-preset', { timeout: 8000 });
+  await page.locator('#gfx-settings').scrollIntoViewIfNeeded();
+}
+
+async function graphicsSettings(page, name) {
+  await openGraphics(page);
+  const autoLabel = (await page.locator('#gfx-preset option[value="auto"]').textContent()).trim();
+  if (!/Auto \(detected: Low\)/.test(autoLabel)) throw new Error(`software GPU should auto-detect Low, got "${autoLabel}"`);
+  await page.selectOption('#gfx-preset', 'low');
+  let st = await gfxState(page);
+  if (st.preset !== 'low' || st.canvas !== 'low') throw new Error(`Low preset not applied: ${JSON.stringify(st)}`);
+  if (!/no shadows/.test(st.summary)) throw new Error(`Low summary unexpected: "${st.summary}"`);
+  await page.selectOption('#gfx-preset', 'high');
+  st = await gfxState(page);
+  if (st.preset !== 'high' || st.canvas !== 'high') throw new Error(`High preset not applied: ${JSON.stringify(st)}`);
+  if (!/2048² shadows/.test(st.summary) || !/bloom/.test(st.summary)) throw new Error(`High summary unexpected: "${st.summary}"`);
+  await page.selectOption('#gfx-bloom', 'off');
+  st = await gfxState(page);
+  if (st.bloom !== 'off' || /bloom/.test(st.summary)) throw new Error(`bloom override not applied: ${JSON.stringify(st)}`);
+  const panel = await page.locator('#gfx-settings').boundingBox();
+  const vw = page.viewportSize().width;
+  if (!panel || panel.x < 0 || panel.x + panel.width > vw + 1) throw new Error(`Graphics panel cut off: ${JSON.stringify(panel)}`);
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: SHOT('graphics', name) });
+
+  // survives a reload
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForFunction(() => !!window.__riverStakes);
+  await page.waitForSelector('.screen-title .title-logo', { timeout: 15000 });
+  await openGraphics(page);
+  st = await gfxState(page);
+  if (st.preset !== 'high' || st.presetSel !== 'high' || st.bloom !== 'off') throw new Error(`graphics settings not persisted: ${JSON.stringify(st)}`);
+
+  // choosing a preset clears overrides; back to Auto (Low on the software GPU) for the rest
+  await page.selectOption('#gfx-preset', 'auto');
+  st = await gfxState(page);
+  if (st.preset !== 'low' || st.bloom !== 'preset') throw new Error(`Auto did not clear overrides: ${JSON.stringify(st)}`);
+  await page.getByRole('button', { name: /Back/ }).click();
+  await page.waitForSelector('.screen-title .title-logo', { timeout: 8000 });
+  ok(`${name}: Settings → Graphics: Low/High presets, bloom override, reload persistence, Auto clears overrides`);
+}
+
 // ---------- one full pass ----------
 async function runPass(browser, name, ctxOpts, { full }) {
   const errors = [];
@@ -140,7 +193,7 @@ async function runPass(browser, name, ctxOpts, { full }) {
   const page = await context.newPage();
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
   page.on('console', (m) => {
-    if (m.type() !== 'error' || browserNoise.test(m.text())) return;
+    if ((m.type() !== 'error' && m.type() !== 'warning') || browserNoise.test(m.text())) return;
     const url = m.location()?.url || '';
     if (/Failed to load resource/.test(m.text()) && /\/api\/|\/favicon/.test(url)) return;
     errors.push(`console: ${m.text()}`);
@@ -155,6 +208,8 @@ async function runPass(browser, name, ctxOpts, { full }) {
     if (!/River Stakes/.test(logo)) throw new Error(`unexpected title logo "${logo}"`);
     await page.screenshot({ path: SHOT('title', name) });
     ok(`${name}: title screen visible ("${logo}")`);
+
+    await graphicsSettings(page, name);
 
     // title → Choose your table
     await page.getByRole('button', { name: 'Play', exact: true }).click();

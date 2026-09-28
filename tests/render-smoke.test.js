@@ -27,7 +27,7 @@ test('framing constants are exposed and sane', () => {
 
 test('contract methods exist on the prototype', () => {
   for (const m of ['setTheme', 'setQuality', 'setReducedMotion', 'showSnapshot',
-    'playEvents', 'resize', 'setPaused', 'dispose', 'debugInfo']) {
+    'playEvents', 'resize', 'setPaused', 'dispose', 'debugInfo', 'setGraphics', 'graphicsInfo']) {
     assert.equal(typeof Renderer.prototype[m], 'function', m);
   }
 });

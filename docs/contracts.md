@@ -304,10 +304,14 @@ export class AudioSystem {
 ```js
 export class Renderer {
   static async create(canvas, opts) -> Renderer | null
-  // opts: { theme, quality:'low'|'medium'|'high', reducedMotion:bool }
+  // opts: { theme, graphics:<saved gfx settings, see js/gfx.js>, quality?:'low'|'medium'|'high' (legacy),
+  //         reducedMotion:bool }
   // Returns null if WebGL/three unavailable (UI must remain fully usable without it).
   setTheme(themeObj)            // re-skins materials; themes are data (palette) from content.js
-  setQuality(q)                 // shadows/particles/renderScale/dpr caps; never alters readability
+  setGraphics(saved)            // apply { preset:'auto'|'low'|'balanced'|'high'|'ultra', render_scale, adaptive,
+                                // show_fps, <category>:'preset'|tier } live; never alters readability
+  graphicsInfo(words) -> { gpu, detected, resolved, pixels, summary, fps, adaptiveScale, postFailed }
+  setQuality(q)                 // legacy tier → preset (low→low, medium→balanced, high→high)
   setReducedMotion(b)
   showSnapshot(snap, viewerSeat)// rebuild/update: seats, stacks, cards, community, pot, dealer button,
                                 // acting-player highlight. Pure function of snapshot (idempotent).
@@ -315,7 +319,7 @@ export class Renderer {
   resize()                      // reads canvas client size + dpr cap
   setPaused(bool)               // hidden tab: stop rAF loop
   dispose()
-  debugInfo() -> { drawCalls, triangles, quality }
+  debugInfo() -> { drawCalls, triangles, quality }   // quality = resolved preset
 }
 // Scene: riverside card salon — oval table w/ felt, 2–6 seat positions (camera behind viewer's seat),
 // card meshes w/ procedural canvas faces, cylinder chip stacks sized by count, pot mound, dealer
