@@ -150,7 +150,6 @@ kbd {
   border: 1px solid var(--line); border-radius: var(--radius);
   padding: 0.55em 0.8em; min-height: var(--target); max-width: 100%;
 }
-.input-code { text-transform: uppercase; letter-spacing: 0.35em; width: 9ch; text-align: center; }
 
 input[type="checkbox"] { width: 1.35em; height: 1.35em; accent-color: var(--accent); }
 input[type="range"] { accent-color: var(--accent); min-height: var(--target); min-width: 9rem; }
@@ -214,6 +213,13 @@ input[type="range"] { accent-color: var(--accent); min-height: var(--target); mi
 }
 .title-tag { color: var(--ink-dim); margin-block-start: 0; }
 .title-secondary, .title-tertiary { display: flex; flex-wrap: wrap; gap: var(--gap); justify-content: center; }
+#btn-signin { display: block; margin: var(--gap) auto 0; }
+.app-toast {
+  position: fixed; inset-block-end: calc(1.5rem + env(safe-area-inset-bottom)); inset-inline-start: 50%;
+  transform: translateX(-50%); z-index: 40; max-width: min(90vw, 46ch); overflow-wrap: anywhere; text-align: center;
+  background: var(--surface-2); border: 1px solid var(--accent); border-radius: 1rem; padding: 0.5em 1.2em; box-shadow: var(--shadow);
+}
+.app-toast[hidden] { display: none; }
 
 /* Mode select */
 .mode-grid {
@@ -227,8 +233,6 @@ input[type="range"] { accent-color: var(--accent); min-height: var(--target); mi
 .mode-rules { color: var(--ink-dim); margin: 0; flex: 1; }
 .mode-meta { list-style: none; padding: 0; margin: 0.4rem 0; display: flex; flex-wrap: wrap; gap: 0.6rem; font-size: 0.9rem; color: var(--ink-dim); }
 .mode-card .btn { align-self: flex-start; }
-.mode-card.is-disabled { opacity: 0.75; }
-.mode-card.is-disabled .muted { margin: 0; }
 
 /* Read-only standings (daily challenge) */
 .standings-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.25rem; max-width: 44ch; }
@@ -281,18 +285,6 @@ input[type="range"] { accent-color: var(--accent); min-height: var(--target); mi
 .results-stars { color: var(--accent); font-size: 1.3rem; letter-spacing: 0.08em; }
 .results-compare { color: var(--ink-dim); }
 .results-actions { margin-block-start: 1.2rem; }
-
-/* Lobby */
-.room-code-row { margin: 0.2em 0; }
-.room-code {
-  font-size: 2rem; letter-spacing: 0.4em; color: var(--accent);
-  background: var(--surface-2); padding: 0.2em 0.5em 0.2em 0.9em; border-radius: var(--radius);
-}
-.roster { list-style: none; padding: 0; display: grid; gap: 0.4rem; }
-.roster-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; padding: 0.35em 0; border-block-end: 1px solid var(--line); }
-.ready-dot.is-ready { color: var(--ok); }
-.ready-dot.is-not { color: var(--ink-dim); }
-.roster-name { font-weight: 600; }
 
 /* ------------------------------------------------------------ cards */
 .card {
@@ -486,26 +478,6 @@ input[type="range"] { accent-color: var(--accent); min-height: var(--target); mi
 
 /* Drawer toggles: hidden on wide layouts */
 .drawer-toggle { display: none; }
-
-/* ------------------------------------------------------------ chat */
-.chat { margin-block-start: 1rem; border-block-start: 1px solid var(--line); padding-block-start: 0.5rem; }
-.chat-toggle { width: 100%; justify-content: space-between; }
-.chat-badge {
-  background: var(--danger); color: #fff; border-radius: 999px;
-  min-width: 1.5em; padding: 0 0.4em; font-size: 0.8rem; text-align: center;
-}
-.chat-body { display: flex; flex-direction: column; gap: 0.4rem; margin-block-start: 0.5rem; }
-.chat-list {
-  list-style: none; margin: 0; padding: 0.4rem; max-height: 12rem; overflow-y: auto;
-  background: var(--surface-2); border-radius: 8px; font-size: 0.88rem;
-  display: flex; flex-direction: column; gap: 0.25rem;
-}
-.chat-who { color: var(--accent); }
-.chat-note { margin: 0; font-size: 0.78rem; color: var(--ink-dim); }
-.chat-note.is-warn { color: var(--warn); }
-.chat-form { display: flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; }
-.chat-input { flex: 1; min-width: 8rem; }
-.chat-counter { font-size: 0.78rem; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
 
 /* ----------------------------------------------------------- modals */
 .modal-backdrop {

@@ -4,3 +4,15 @@ launch=index.html
 owner=2712e04e-461b-4d23-81ae-e40b429128a8
 server=server.js
 cover=cover.jpg
+
+# Keyboard actions (KeyboardEvent.code; remappable via the platform controls API).
+control.fold=KeyF | Fold
+control.call=KeyC+KeyX | Check / call
+control.raise=KeyB+KeyR | Bet / raise
+control.allin=KeyA | All in
+control.undo=KeyU | Undo
+control.hint=KeyH | Hint
+control.pause=Escape | Pause / close panel
+control.prev=ArrowLeft | Previous action button
+control.next=ArrowRight | Next action button
+control.skip=KeyS | Skip to your next decision

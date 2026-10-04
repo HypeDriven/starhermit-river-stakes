@@ -239,11 +239,9 @@ export class Platform {
   static async init() -> Platform
   // Reads the launch token from the URL fragment `#game_token=<jwt>` (once, then
   // stripped; query fallbacks localhost-only) and decodes sub/game_scope.
-  // 'hosted' iff a token was read; otherwise probes the game's own dev server
-  // (/api/v1/time) for clock sync + local multiplayer (localServer flag).
+  // 'hosted' iff a token was read; otherwise fully local with no network request.
   // NEVER persists tokens to storage.
   get mode()              // 'hosted' | 'local'
-  get localServer         // dev server reachable (local mode multiplayer + clock)
   get token() / get userId() / get gameKey()   // in-memory only; null in local mode
   async api(path, {method, body})              // same-origin REST with Authorization: Bearer
   // 45-min token refresh: POST /api/v1/games/{slug}/launch-token; ~60 s retry
@@ -252,8 +250,7 @@ export class Platform {
   get syncStatus()        // 'offline' | 'synced' | 'saving' | 'error'; onSyncStatus(fn)
   async cloudLoad()       // GET /api/v1/me/cloud-saves/{slug} -> doc | null (404 = none); remote wins on conflict
   scheduleCloudSave(doc)  // PUT mirror, debounced ~2 s (stored-zip + base64); flushCloud() on pagehide/visibilitychange
-  async serverNow()       // round-trip-adjusted dev-server time via GET /api/v1/time; Date.now() fallback
-  async utcToday()        // 'YYYY-MM-DD' using serverNow
+  utcToday()              // 'YYYY-MM-DD' from the device clock (UTC)
   loadJSON(key, fallback) / saveJSON(key, value)     // localStorage-backed, version-checked
   // settings/profile/progress convenience wrappers using STORAGE keys
   async unlockAchievement(key)  // idempotent; local only (rides in the cloud doc)
@@ -266,18 +263,6 @@ export class Platform {
   // by launch tokens; telemetry() keeps a consented in-memory ring only.
   telemetry(event, data) // only: 'start','tutorial_step','round_end','retry','settings_change','error'; no-op without consent
 }
-export class HostedClient {
-  // WebSocket JSON rooms on the game's OWN dev server (npm start) — never used
-  // on-platform, where hosted tables are honestly disabled (main.js hostedNote()).
-  constructor({ name })
-  async connect() -> { playerId, serverTime }
-  createRoom(config) / joinRoom(code) / rejoin(sessionId, token)
-  setReady(ready) / sendCommand(command) / sendChat(text) / leave()
-  on(op, fn) // ops: 'lobby','started','snapshot','chat','result','whileAway','error','closed'
-}
-// Protocol messages: client->server {op:'hello'|'create'|'join'|'rejoin'|'ready'|'cmd'|'chat'|'leave', ...}
-// server->client {op:'welcome'|'lobby'|'started'|'snapshot'|'chat'|'result'|'whileAway'|'error', ...}
-// 'snapshot': {op, snapshot /*viewer-scrubbed*/, events, tick}
 ```
 
 ---
@@ -336,14 +321,13 @@ export class UI {
   constructor(root /*#ui*/, controller /*see below*/, opts /*{strings?}*/)
   showScreen(name, data?)
   // 'title'|'modes'|'setup'|'game'|'results'|'journey'|'challenges'|'achievements'|
-  // 'settings'|'help'|'profile'|'lobby'|'daily'
+  // 'settings'|'help'|'profile'|'daily'
   updateGame(view)
   // view: { snapshot, legal:[Action], isYourTurn:bool, objective /*string*/, progress /*string*/,
   //         mode, canUndo, hint /*string|null*/, seatedYou /*player obj*/ }
   showEvents(events)            // toasts + action feed entries
   announce(msg, assertive=false)// aria-live
   showResults(data)             // { headline, breakdown:[{label,value}], progress, achievements:[keys], comparison, canRetry, canNext }
-  lobbyUpdate(lobby)            // hosted roster/readiness/chat
   applySettings(settings)       // text size, contrast, palette, handedness, reduced motion
   setTheme(themeObj)            // CSS custom properties
 }
@@ -351,7 +335,6 @@ export class UI {
 // play(mode, options) · action(type, amount?) · advance() · undo() · hint() ·
 // pauseToggle() · leaveToTitle() · retry() · nextStage() · selectJourney(id) · selectChallenge(id) ·
 // selectDaily() · saveSettings(patch) · setTheme(id) · profileSave({name}) ·
-// hostedCreate(config) · hostedJoin(code) · hostedReady(b) · hostedChat(text) · hostedLeave() ·
 // dismissResults() · tutorialAck()
 ```
 
@@ -369,7 +352,7 @@ fixed widths on buttons). All colors paired with icons/text (never color-only). 
 ## js/main.js — lead writes this; do not create
 
 App state machine `boot → title → mode-select → setup → game(active↔paused) → results → progression`,
-wiring Session/HostedClient ↔ UI ↔ Renderer ↔ AudioSystem ↔ Platform, journey progress
+wiring Session ↔ UI ↔ Renderer ↔ AudioSystem ↔ Platform, journey progress
 persistence (stars per stage), daily flow, tutorial flow, challenge flow, achievements.
 
 ---

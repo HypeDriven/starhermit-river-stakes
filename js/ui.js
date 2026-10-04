@@ -2,6 +2,8 @@
 
 import { CATEGORIES, PRESETS, choosePreset, defaultGraphics, presetTier, resolve as resolveGraphics } from './gfx.js';
 import { gfxStrings } from './gfx-strings.js';
+import { shText } from './sh-i18n.js';
+import { DEFAULT_BINDINGS, keyLabel } from './platform.js';
 
 /**
  * All user-facing text lives here, grouped by screen/purpose, so the game can
@@ -58,7 +60,6 @@ export const STRINGS = {
       daily:     { name: 'Daily', rules: 'One shared seed per UTC day. Same cards for everyone.', duration: '~10 min', players: '1 player vs AI', ranked: true },
       practice:  { name: 'Practice', rules: 'Pick difficulty, seats and assists. Undo allowed. Nothing at stake.', duration: '5\u201315 min', players: '2\u20136 seats vs AI', ranked: false },
       challenge: { name: 'Challenge', rules: 'Constrained variants: short stacks, hand limits, speed targets.', duration: '5\u201315 min', players: '2\u20136 seats vs AI', ranked: true },
-      hosted:    { name: 'Hosted table', rules: 'Private room with a code. Friends take seats; the server deals.', duration: '15\u201340 min', players: '2\u20136 players', ranked: false },
     },
   },
   setup: {
@@ -77,13 +78,6 @@ export const STRINGS = {
     rankedNote: 'This result is ranked.',
     unrankedNote: 'This result is not ranked.',
     commit: 'Take your seat',
-    hostedCreateTitle: 'Create a table',
-    hostedCreateNote: 'You host. Empty seats are filled by house AI until friends join.',
-    hostedCreate: 'Create room',
-    hostedJoinTitle: 'Join a table',
-    hostedJoinNote: 'Enter the 5-character room code your host shared.',
-    hostedCodeLabel: 'Room code',
-    hostedJoin: 'Join room',
     lessons: 'Lessons',
     lessonStart: 'Start lesson',
   },
@@ -114,7 +108,6 @@ export const STRINGS = {
     hint: 'Hint',
     hintGotIt: 'Got it',
     pause: 'Pause',
-    chat: 'Chat',
     openDrawerLeft: 'Objective',
     openDrawerRight: 'Table info',
     seatDealer: 'Dealer',
@@ -242,23 +235,6 @@ export const STRINGS = {
     },
     empty: 'No stats yet \u2014 play a few hands first.',
   },
-  lobby: {
-    heading: 'Hosted table',
-    roomCode: 'Room code',
-    codeNote: 'Share this code with friends so they can take a seat.',
-    roster: 'Roster',
-    ready: 'Ready',
-    notReady: 'Not ready',
-    hostBadge: 'Host',
-    away: 'Away',
-    youBadge: 'You',
-    imReady: 'I\u2019m ready',
-    notReadyYet: 'Not ready yet',
-    startGame: 'Start the game',
-    startWaiting: 'Waiting for players\u2026',
-    leaveRoom: 'Leave room',
-    waitingHost: 'The host starts the game when everyone is ready.',
-  },
   daily: {
     heading: 'Daily challenge',
     dateLine: 'Table for {date}',
@@ -270,18 +246,6 @@ export const STRINGS = {
     standings: 'River-wide standings',
     standingsLoading: 'Loading standings\u2026',
     standingsEmpty: 'No standings available yet.',
-  },
-  chat: {
-    title: 'Chat',
-    open: 'Open chat',
-    close: 'Close chat',
-    unread: '{n} unread',
-    placeholder: 'Message the table\u2026',
-    send: 'Send',
-    counter: '{n}/240',
-    rateNote: 'Up to 10 messages per minute.',
-    rateLimited: 'Slow down \u2014 the table allows 10 messages per minute.',
-    empty: 'No messages yet. Say hello.',
   },
   modals: {
     pauseTitle: 'Paused',
@@ -332,32 +296,31 @@ export const STRINGS = {
   },
 };
 
-/** Keyboard bindings — the help screen control list is generated from this. */
-const KEY_BINDINGS = [
-  { key: 'f',        label: 'F',     desc: 'Fold',                 action: 'fold' },
-  { key: 'c',        label: 'C',     desc: 'Check / call (whichever is legal)', action: 'checkOrCall' },
-  { key: 'x',        label: 'X',     desc: 'Check / call (alternate)',          action: 'checkOrCall' },
-  { key: 'b',        label: 'B',     desc: 'Bet / raise',          action: 'betOrRaise' },
-  { key: 'r',        label: 'R',     desc: 'Bet / raise (alternate)', action: 'betOrRaise' },
-  { key: 'a',        label: 'A',     desc: 'All in',               action: 'allin' },
-  { key: 'Enter',    label: 'Enter', desc: 'Confirm the focused button', action: 'confirm' },
-  { key: 'Escape',   label: 'Esc',   desc: 'Pause / close panel',  action: 'pause' },
-  { key: 'u',        label: 'U',     desc: 'Undo (when allowed)',  action: 'undo' },
-  { key: 'h',        label: 'H',     desc: 'Hint',                 action: 'hint' },
-  { key: 'ArrowLeft',  label: '\u2190/\u2192', desc: 'Move between action buttons', action: 'navigate' },
-  { key: 'ArrowRight', label: '',    desc: '',                     action: 'navigate', hidden: true },
+/**
+ * Keyboard actions shown in help and the shortcut bar. Keys come from the
+ * effective bindings (platform controls API; defaults in platform.js).
+ */
+const KEY_ACTIONS = [
+  { action: 'fold',   desc: 'Fold' },
+  { action: 'call',   desc: 'Check / call (whichever is legal)' },
+  { action: 'raise',  desc: 'Bet / raise' },
+  { action: 'allin',  desc: 'All in' },
+  { label: 'Enter',   desc: 'Confirm the focused button' },
+  { action: 'pause',  desc: 'Pause / close panel' },
+  { action: 'undo',   desc: 'Undo (when allowed)' },
+  { action: 'hint',   desc: 'Hint' },
+  { action: ['prev', 'next'], desc: 'Move between action buttons' },
+  { action: 'skip',   desc: 'Skip ahead to your next decision' },
 ];
 
 /** Static per-mode metadata for the mode-select screen. */
-const MODE_ORDER = ['learn', 'journey', 'daily', 'practice', 'challenge', 'hosted'];
+const MODE_ORDER = ['learn', 'journey', 'daily', 'practice', 'challenge'];
 
 const SUIT_CLASS = ['suit-s', 'suit-h', 'suit-d', 'suit-c'];
 const RED_SUITS = new Set([1, 2]); // hearts, diamonds
 
 const FEED_MAX = 6;
-const CHAT_MAX_LEN = 240;
-const CHAT_RATE = 10;          // messages
-const CHAT_RATE_WINDOW = 60000; // per minute
+
 
 /* ------------------------------------------------------------------ helpers */
 
@@ -439,7 +402,6 @@ export class UI {
     this.raiseAmount = null;      // current stepper value (total round bet)
     this.actionPending = false;   // double-commit guard, cleared by updateGame
     this.hintVisible = false;
-    this.chat = { open: false, unread: 0, sentAt: [], messages: [] };
     this.lastAnnounce = { turn: '', objective: '' };
 
     this.livePolite = document.getElementById('live-polite') || el('div', { class: 'visually-hidden' });
@@ -459,6 +421,36 @@ export class UI {
   }
 
   /** Call a controller method if main.js implemented it. */
+  /** Effective keyboard bindings (action -> KeyboardEvent.code[]). */
+  setBindings(b) { this.bindings = b || DEFAULT_BINDINGS; }
+
+  _keyRows() {
+    const b = this.bindings || DEFAULT_BINDINGS;
+    return KEY_ACTIONS.map((k) => {
+      if (k.label) return { label: k.label, desc: k.desc };
+      const codes = [].concat(k.action).flatMap((a) => b[a] || []);
+      return { label: codes.map(keyLabel).join(' / '), desc: k.desc };
+    }).filter((r) => r.label);
+  }
+
+  /** Localized StarHermit chrome string. */
+  sh(key, vars) { return shText(key, vars); }
+
+  /** Visible confirmation on any screen (falls back from the in-game toast line). */
+  notify(text) {
+    if (this.screen === 'game' && this.g && this.g.toasts) { this._toast(text); return; }
+    let host = document.getElementById('app-toast');
+    if (!host) {
+      host = el('div', { id: 'app-toast', class: 'app-toast', role: 'status' });
+      document.body.append(host);
+    }
+    host.textContent = text;
+    host.hidden = false;
+    clearTimeout(this._notifyTimer);
+    this._notifyTimer = setTimeout(() => { host.hidden = true; }, 4000);
+    this.announce(text, false);
+  }
+
   _call(name, ...args) {
     const fn = this.c[name];
     if (typeof fn === 'function') return fn.apply(this.c, args);
@@ -470,7 +462,7 @@ export class UI {
   /**
    * Switch the visible screen.
    * @param {string} name one of: title modes setup game results journey
-   *   challenges achievements settings help profile lobby daily
+   *   challenges achievements settings help profile daily
    * @param {*} [data] screen-specific payload (cached for re-entry)
    */
   showScreen(name, data) {
@@ -502,6 +494,7 @@ export class UI {
 
   _screen_title() {
     const s = this.s;
+    const acct = this._call('account') || {};
     return el('section', { class: 'screen-title' },
       el('div', { class: 'title-card' },
         el('p', { class: 'title-kicker', text: s.title.tagline }),
@@ -517,7 +510,13 @@ export class UI {
           el('button', { class: 'btn', type: 'button', onclick: () => this.showScreen('profile') }, s.title.profile)),
         el('div', { class: 'title-tertiary' },
           el('button', { class: 'btn btn-ghost', type: 'button', onclick: () => this.showScreen('settings') }, s.title.settings),
-          el('button', { class: 'btn btn-ghost', type: 'button', onclick: () => this.showScreen('help') }, s.title.help))));
+          el('button', { class: 'btn btn-ghost', type: 'button', onclick: () => this.showScreen('help') }, s.title.help),
+          acct.signedIn
+            ? el('button', { class: 'btn btn-ghost', type: 'button', id: 'btn-invite', onclick: () => this._call('invite') }, shText('invite'))
+            : null),
+        acct.canSignIn && !acct.signedIn
+          ? el('button', { class: 'btn', type: 'button', id: 'btn-signin', onclick: () => this._call('signIn') }, shText('signIn'))
+          : null));
   }
 
   _screen_modes() {
@@ -526,22 +525,17 @@ export class UI {
     for (const id of MODE_ORDER) {
       const meta = s.modes.list[id];
       if (!meta) continue;
-      // Hosted tables only exist on the game's own dev server; on-platform the
-      // card is shown honestly disabled with the reason.
-      const note = id === 'hosted' ? this._call('hostedNote') : null;
-      grid.append(el('div', { class: 'mode-card' + (note ? ' is-disabled' : ''), role: 'listitem' },
+      grid.append(el('div', { class: 'mode-card', role: 'listitem' },
         el('h3', { text: meta.name }),
         el('p', { class: 'mode-rules', text: meta.rules }),
         el('ul', { class: 'mode-meta' },
           el('li', { text: '\u23F1 ' + meta.duration }),
           el('li', { text: '\u2694 ' + meta.players }),
           el('li', { class: 'badge ' + (meta.ranked ? 'badge-ranked' : 'badge-unranked'), text: meta.ranked ? s.common.ranked : s.common.unranked })),
-        note
-          ? el('p', { class: 'muted', text: note })
-          : el('button', {
-            class: 'btn btn-primary', type: 'button',
-            onclick: () => this.showScreen('setup', { mode: id }),
-          }, s.common.play)));
+        el('button', {
+          class: 'btn btn-primary', type: 'button',
+          onclick: () => this.showScreen('setup', { mode: id }),
+        }, s.common.play)));
     }
     return el('section', {},
       this._backBar(s.common.back, 'title'),
@@ -559,31 +553,7 @@ export class UI {
 
     const commit = () => this._call('play', mode, structuredClone(opts));
 
-    if (mode === 'hosted') {
-      const code = el('input', {
-        class: 'input input-code', type: 'text', maxlength: '5', autocomplete: 'off',
-        'aria-label': s.setup.hostedCodeLabel, placeholder: 'RIVER',
-      });
-      form.append(
-        el('section', { class: 'panel' },
-          el('h2', { text: s.setup.hostedCreateTitle }),
-          el('p', { text: s.setup.hostedCreateNote }),
-          el('label', { class: 'field' }, el('span', { text: s.setup.players }),
-            selectEl('hosted-seats', [2, 3, 4, 5, 6].map(n => [n, fmt(s.setup.playersOption, { n })]),
-              (v) => { opts.players = Number(v); }, String(opts.players))),
-          el('button', {
-            class: 'btn btn-primary', type: 'button', 'data-autofocus': '',
-            onclick: () => this._call('hostedCreate', structuredClone(opts)),
-          }, s.setup.hostedCreate)),
-        el('section', { class: 'panel' },
-          el('h2', { text: s.setup.hostedJoinTitle }),
-          el('p', { text: s.setup.hostedJoinNote }),
-          el('div', { class: 'field-row' }, code,
-            el('button', {
-              class: 'btn btn-primary', type: 'button',
-              onclick: () => { if (code.value.trim()) this._call('hostedJoin', code.value.trim().toUpperCase()); },
-            }, s.setup.hostedJoin))));
-    } else if (mode === 'learn') {
+    if (mode === 'learn') {
       const lessons = (data && data.lessons) || this._call('listLessons') || [];
       form.append(el('section', { class: 'panel' },
         el('h2', { text: s.setup.lessons }),
@@ -801,78 +771,6 @@ export class UI {
         el('button', { class: 'btn', type: 'button', onclick: () => this.showScreen('achievements') }, s.achievements.heading)));
   }
 
-  _screen_lobby(data) {
-    const s = this.s;
-    this.lobbyRefs = {};
-    const refs = this.lobbyRefs;
-    refs.code = el('code', { class: 'room-code', text: (data && data.code) || '-----' });
-    refs.roster = el('ul', { class: 'roster', role: 'list' });
-    refs.start = el('button', {
-      class: 'btn btn-primary btn-xl', type: 'button',
-      onclick: () => this._call('hostedReady', true),
-    }, s.lobby.startGame);
-    refs.readyBtn = el('button', {
-      class: 'btn', type: 'button',
-      onclick: () => this._call('hostedReady', !(this._lobbyData && this._lobbyData.youReady)),
-    }, s.lobby.imReady);
-    refs.note = el('p', { class: 'muted' });
-    const chatPanel = this._buildChatPanel();
-    refs.chat = chatPanel;
-    const screen = el('section', {},
-      this._backBar(s.lobby.leaveRoom, 'modes'),
-      el('h1', { text: s.lobby.heading, 'data-autofocus': '' }),
-      el('section', { class: 'panel' },
-        el('h2', { text: s.lobby.roomCode }),
-        el('p', { class: 'room-code-row' }, refs.code),
-        el('p', { class: 'muted', text: s.lobby.codeNote })),
-      el('section', { class: 'panel' },
-        el('h2', { text: s.lobby.roster }), refs.roster,
-        el('div', { class: 'field-row' }, refs.readyBtn, refs.start),
-        refs.note),
-      chatPanel,
-      el('button', {
-        class: 'btn btn-ghost', type: 'button',
-        onclick: () => this._confirmLeave(() => this._call('hostedLeave')),
-      }, s.lobby.leaveRoom));
-    if (data) this.lobbyUpdate(data);
-    return screen;
-  }
-
-  /** Hosted lobby/roster/readiness/chat update from main.js. */
-  lobbyUpdate(lobby) {
-    if (!lobby) return;
-    this._lobbyData = lobby;
-    if (Array.isArray(lobby.chat)) this._chatMerge(lobby.chat);
-    const refs = this.lobbyRefs;
-    if (!refs || this.screen !== 'lobby') return;
-    const s = this.s;
-    if (lobby.code) refs.code.textContent = lobby.code;
-    refs.roster.textContent = '';
-    for (const p of lobby.players || []) {
-      const isYou = lobby.youId != null && p.id === lobby.youId;
-      const badges = [];
-      if (p.isHost || p.host) badges.push(el('span', { class: 'badge', text: s.lobby.hostBadge }));
-      if (isYou) badges.push(el('span', { class: 'badge', text: s.lobby.youBadge }));
-      if (p.away) badges.push(el('span', { class: 'badge badge-warn', text: s.lobby.away }));
-      refs.roster.append(el('li', { class: 'roster-row' },
-        el('span', {
-          class: 'ready-dot ' + (p.ready ? 'is-ready' : 'is-not'), 'aria-hidden': 'true', text: p.ready ? '\u25CF' : '\u25CB',
-        }),
-        el('span', { class: 'roster-name', text: p.name || p.id }),
-        el('span', { class: 'badge ' + (p.ready ? 'badge-ok' : ''), text: p.ready ? s.lobby.ready : s.lobby.notReady }),
-        badges));
-    }
-    const youReady = !!lobby.youReady;
-    refs.readyBtn.textContent = youReady ? s.lobby.notReadyYet : s.lobby.imReady;
-    refs.readyBtn.onclick = () => this._call('hostedReady', !youReady);
-    const canStart = !!lobby.isHost && !!lobby.canStart;
-    refs.start.disabled = !lobby.isHost || !canStart;
-    refs.start.textContent = lobby.isHost ? s.lobby.startGame : s.lobby.waitingHost;
-    refs.note.textContent = lobby.isHost
-      ? (canStart ? '' : s.lobby.startWaiting)
-      : s.lobby.waitingHost;
-  }
-
   _screen_help(data, inModal = false) {
     const s = this.s;
     const rankingCards = s.help.handNames.map((name, i) => {
@@ -881,7 +779,7 @@ export class UI {
         el('span', { class: 'rank-name', text: `${i + 1}. ${name}` }),
         el('span', { class: 'rank-cards' }, example.map(c => this._cardEl(c))));
     });
-    const controlRows = KEY_BINDINGS.filter(b => !b.hidden).map(b =>
+    const controlRows = this._keyRows().map(b =>
       el('tr', {}, el('th', { scope: 'row' }, el('kbd', { text: b.label })), el('td', { text: b.desc })));
     return el('section', {},
       inModal ? null : this._backBar(s.common.back, 'title'),
@@ -1131,7 +1029,6 @@ export class UI {
     g.stepper = this._buildStepper();
     g.shortcutBar = this._buildShortcutBar();
     g.toasts = el('div', { class: 'toast-stack', 'aria-hidden': 'true' });
-    g.chatPanel = this._buildChatPanel();
 
     const railLeft = el('aside', { class: 'rail rail-left', id: 'rail-left', 'aria-label': s.game.objective },
       el('h2', { text: s.game.objective }), g.objective,
@@ -1143,8 +1040,7 @@ export class UI {
       el('p', { class: 'status-line' }, el('strong', { text: s.game.pot + ': ' }), g.pot),
       el('p', { class: 'status-line' }, el('strong', { text: s.game.currentBet + ': ' }), g.currentBet),
       el('p', { class: 'status-line' }, el('strong', { text: s.game.toCall + ': ' }), g.toCall),
-      el('h2', { text: s.game.feedTitle }), g.feed,
-      g.chatPanel);
+      el('h2', { text: s.game.feedTitle }), g.feed);
 
     g.drawerLeftBtn = el('button', {
       class: 'btn drawer-toggle drawer-toggle-left', type: 'button', 'aria-expanded': 'false', 'aria-controls': 'rail-left',
@@ -1264,7 +1160,7 @@ export class UI {
           },
         }, s.game.shortcutsDismiss)),
       el('ul', { class: 'shortcut-list' },
-        KEY_BINDINGS.filter(b => !b.hidden).map(b =>
+        this._keyRows().map(b =>
           el('li', {}, el('kbd', { text: b.label }), ' ', el('span', { text: b.desc })))));
     bar.hidden = this.settings.ui.shortcutHints === false;
     return bar;
@@ -1315,7 +1211,7 @@ export class UI {
     this._lastMode = view.mode;
     this._lastHint = view.hint || null;
 
-    // Player name/id bookkeeping (used by event strings + chat).
+    // Player name/id bookkeeping (used by event strings).
     for (const p of snap.players || []) this.playerNames.set(p.id, p.name);
     const you = view.seatedYou || (snap.players || []).find(p => p.id === this.youId) || null;
     if (you) this.youId = you.id;
@@ -1633,7 +1529,6 @@ export class UI {
           toast = true; assertive = true;
           break;
         }
-        case 'chat': this._chatAdd(ev); continue;
       }
       if (text) {
         this._feedPush(text);
@@ -1674,95 +1569,6 @@ export class UI {
     // Force re-announcement of repeated strings.
     void region.offsetWidth;
     region.textContent = String(msg);
-  }
-
-  /* --------------------------------------------------------------- chat */
-
-  _buildChatPanel() {
-    const s = this.s.chat;
-    const list = el('ul', { class: 'chat-list', role: 'log', 'aria-label': s.title });
-    const badge = el('span', { class: 'chat-badge', hidden: true });
-    const body = el('div', { class: 'chat-body', hidden: true });
-    const toggle = el('button', {
-      class: 'btn chat-toggle', type: 'button', 'aria-expanded': 'false',
-      onclick: () => {
-        this.chat.open = !this.chat.open;
-        body.hidden = !this.chat.open;
-        toggle.setAttribute('aria-expanded', String(this.chat.open));
-        if (this.chat.open) { this.chat.unread = 0; this._chatBadge(badge); }
-      },
-    }, s.title + ' ', badge);
-    const counter = el('span', { class: 'chat-counter', text: fmt(s.counter, { n: 0 }) });
-    const input = el('input', {
-      class: 'input chat-input', type: 'text', maxlength: String(CHAT_MAX_LEN),
-      placeholder: s.placeholder, 'aria-label': s.placeholder,
-    });
-    const notice = el('p', { class: 'chat-note', text: s.rateNote });
-    input.addEventListener('input', () => { counter.textContent = fmt(s.counter, { n: input.value.length }); });
-    const form = el('form', { class: 'chat-form' }, input, counter,
-      el('button', { class: 'btn btn-primary', type: 'submit' }, s.send));
-    form.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const text = input.value.trim();
-      if (!text) return;
-      const now = Date.now();
-      this.chat.sentAt = this.chat.sentAt.filter(t => now - t < CHAT_RATE_WINDOW);
-      if (this.chat.sentAt.length >= CHAT_RATE) {
-        notice.textContent = s.rateLimited;
-        notice.classList.add('is-warn');
-        return;
-      }
-      this.chat.sentAt.push(now);
-      this._call('hostedChat', text);
-      input.value = '';
-      counter.textContent = fmt(s.counter, { n: 0 });
-      notice.textContent = s.rateNote;
-      notice.classList.remove('is-warn');
-    });
-    body.append(list, notice, form);
-    const panel = el('section', { class: 'chat', 'aria-label': s.title }, toggle, body);
-    this._chatRefs = { list, badge };
-    this._chatRender(list);
-    return panel;
-  }
-
-  _chatBadge(badge) {
-    const n = this.chat.unread;
-    badge.hidden = n <= 0;
-    badge.textContent = String(n);
-    badge.setAttribute('aria-label', fmt(this.s.chat.unread, { n }));
-  }
-
-  _chatMerge(messages) {
-    for (const m of messages) this._chatAdd(m, true);
-    if (this._chatRefs) this._chatRender(this._chatRefs.list);
-  }
-
-  _chatAdd(msg, quiet = false) {
-    if (!msg) return;
-    const key = msg.id || (msg.ts + '|' + (msg.from || msg.playerId || '') + '|' + msg.text);
-    if (this.chat.messages.some(m => m._key === key)) return;
-    this.chat.messages.push({ ...msg, _key: key });
-    if (this.chat.messages.length > 100) this.chat.messages.shift();
-    if (!this.chat.open && !quiet) this.chat.unread += 1;
-    if (this._chatRefs) {
-      this._chatRender(this._chatRefs.list);
-      this._chatBadge(this._chatRefs.badge);
-    }
-  }
-
-  _chatRender(list) {
-    if (!list) return;
-    list.textContent = '';
-    const msgs = this.chat.messages.slice(-50);
-    if (!msgs.length) list.append(el('li', { class: 'muted', text: this.s.chat.empty }));
-    for (const m of msgs) {
-      const who = m.name || this.playerNames.get(m.from || m.playerId) || m.from || m.playerId || '?';
-      list.append(el('li', { class: 'chat-msg' },
-        el('strong', { class: 'chat-who', text: who + ': ' }),
-        el('span', { text: m.text })));
-    }
-    list.scrollTop = list.scrollHeight;
   }
 
   /* ------------------------------------------------------------- modals */
@@ -1860,25 +1666,26 @@ export class UI {
       if (e.key === 'Escape') e.target.blur();
       return;
     }
-    const key = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    // Routed by KeyboardEvent.code through the effective bindings.
+    const action = this._call('actionFor', e.code);
     const btns = (this.g._actionBtns) || {};
     const press = (type) => {
       const b = btns[type];
       if (b && !b.disabled) { e.preventDefault(); b.click(); }
     };
-    switch (key) {
-      case 'f': press('fold'); break;
-      case 'c': case 'x': press(btns.check ? 'check' : 'call'); break;
-      case 'b': case 'r': press(btns.raise ? 'raise' : 'bet'); break;
-      case 'a': press('allin'); break;
-      case 'u': if (!this.g.undoBtn.disabled) { e.preventDefault(); this.g.undoBtn.click(); } break;
-      case 'h': if (!this.g.hintBtn.disabled) { e.preventDefault(); this.g.hintBtn.click(); } break;
-      case 'Escape': e.preventDefault(); this._openPause(); break;
-      case 'ArrowLeft': case 'ArrowRight': {
+    switch (action) {
+      case 'fold': press('fold'); break;
+      case 'call': press(btns.check ? 'check' : 'call'); break;
+      case 'raise': press(btns.raise ? 'raise' : 'bet'); break;
+      case 'allin': press('allin'); break;
+      case 'undo': if (!this.g.undoBtn.disabled) { e.preventDefault(); this.g.undoBtn.click(); } break;
+      case 'hint': if (!this.g.hintBtn.disabled) { e.preventDefault(); this.g.hintBtn.click(); } break;
+      case 'pause': e.preventDefault(); this._openPause(); break;
+      case 'prev': case 'next': {
         const all = Array.from(this.g.tray.querySelectorAll('button:not([disabled])'));
         if (!all.length) break;
         e.preventDefault();
-        const dir = key === 'ArrowRight' ? 1 : -1;
+        const dir = action === 'next' ? 1 : -1;
         const idx = all.indexOf(document.activeElement);
         const next = all[(idx + dir + all.length) % all.length] || all[0];
         next.focus();

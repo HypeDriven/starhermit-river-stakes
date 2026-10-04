@@ -1,5 +1,5 @@
 // River Stakes — bootstrap + application controller: wires platform, UI, renderer, audio, sessions.
-import { Platform, HostedClient } from './platform.js';
+import { Platform } from './platform.js';
 import { UI } from './ui.js';
 import { AudioSystem } from './audio.js';
 import { Renderer } from './render.js';
@@ -57,7 +57,6 @@ class App {
     this.profile = { name: 'Guest' };
     this.progress = {};
     this.game = null;        // active local game context
-    this.hosted = null;      // active hosted context { client, code, snapshot, isHost }
     this.finished = false;   // terminal/results guard for the active game
     this._hint = null;
     this._constraintTimer = null;
@@ -87,8 +86,17 @@ class App {
       try {
         const remote = await this.platform.cloudLoad();
         if (remote) this._applyCloudDoc(remote);
+        else this._persistCloud(); // empty slot: seed it from the local copy
       } catch { /* keep local progress */ }
+      // Per-player settings KV: the platform value wins over local values.
+      const ps = await this.platform.platformSettings();
+      if (Object.keys(ps).length) {
+        mergeDeep(this.settings, ps);
+        this.platform.saveJSON(STORAGE.settings, this.settings);
+      }
+      this.platform.settingsSynced(this.settings);
     }
+    await this.platform.loadBindings();
 
     this.audio = new AudioSystem({
       volumes: {
@@ -102,6 +110,12 @@ class App {
 
     this.ui = new UI(document.getElementById('ui'), this._controller());
     this.ui.youId = HUMAN_ID;
+    this.ui.setBindings(this.platform.bindings);
+    this.platform.onAuth((a) => {
+      if (!a.signedIn) this.ui.announce(this.ui.sh('signedOut'), false);
+      this._refreshCaches();
+      if (this.ui.screen === 'title' || this.ui.screen === 'profile') this.ui.showScreen(this.ui.screen);
+    });
     this.ui.applySettings(this.settings);
 
     // 3D presentation; the DOM UI is fully usable without it.
@@ -126,11 +140,9 @@ class App {
     this.ui.showScreen('title');
     this.platform.telemetry('start', { mode: this.platform.mode === 'hosted' ? 1 : 0 });
 
-    // Pre-compute the daily card (server-time synchronized).
-    this.platform.utcToday().then((today) => {
-      this._daily = dailyForDate(today);
-      this._refreshCaches();
-    }).catch(() => {});
+    // Daily card from the device clock's UTC day.
+    this._daily = dailyForDate(this.platform.utcToday());
+    this._refreshCaches();
   }
 
   _wireWindowEvents() {
@@ -160,7 +172,7 @@ class App {
 
     // Skip/fast-forward: settle all pending AI moves into the exact end state.
     document.addEventListener('keydown', (e) => {
-      if (e.key === 's' && this.ui.screen === 'game' && this.game && this.game.session
+      if (this.platform.actionFor(e.code) === 'skip' && this.ui.screen === 'game' && this.game && this.game.session
           && !e.repeat && !/INPUT|TEXTAREA|SELECT/.test((e.target && e.target.tagName) || '')) {
         this.game.session.skip();
       }
@@ -284,41 +296,18 @@ class App {
       listLessons: () => TUTORIAL.map((l, i) => ({ id: l.id, index: i, title: `${i + 1}. ${l.title}` })),
       listThemes: () => THEMES.map((t) => ({ id: t.id, name: t.name, locked: !this._themeUnlocked(t) })),
       setTheme: (id) => this.setTheme(id),
-      hostedCreate: (opts) => this.hostedCreate(opts || {}),
-      hostedJoin: (code) => this.hostedJoin(code),
-      hostedReady: (b) => this.hostedReady(b),
-      hostedChat: (text) => this.hostedChat(text),
-      hostedLeave: () => this.hostedLeave(),
-      hostedNote: () => this.hostedNote(),
       loadStandings: () => this.platform.getGlobalBoard({ pageSize: 10 }),
+      account: () => ({ signedIn: !!this.platform.token, canSignIn: this.platform.canSignIn() }),
+      signIn: () => this.platform.signIn(),
+      invite: () => this.invite(),
+      actionFor: (code) => this.platform.actionFor(code),
     };
-  }
-
-  /**
-   * Why hosted tables are unavailable (string), or null when they work.
-   * On-platform the game's own-server WS protocol does not exist; hosted
-   * tables stay available only on the local dev server.
-   */
-  hostedNote() {
-    if (this.platform.token) {
-      return 'Online tables are not available on this platform — take a seat against the house AI instead.';
-    }
-    if (!this.platform.localServer) {
-      return 'Requires the game server: run `npm start` and open the served page.';
-    }
-    return null;
   }
 
   play(mode, options) {
     if (mode === 'journey') { this.ui.showScreen('journey'); return; }
     if (mode === 'challenge') { this.ui.showScreen('challenges'); return; }
     if (mode === 'daily') { this.ui.showScreen('daily', this._daily); return; }
-    if (mode === 'hosted') {
-      const note = this.hostedNote();
-      if (note) { this.ui.announce(note, true); return; }
-      this.ui.showScreen('setup', { mode: 'hosted' });
-      return;
-    }
     if (mode === 'learn') {
       const idx = this._lessonIndex(options);
       this._startLearn(idx);
@@ -537,7 +526,6 @@ class App {
   /* ------------------------------------------------------------- actions */
 
   action(type, amount) {
-    if (this.hosted) return this._hostedAction(type, amount);
     const g = this.game;
     if (!g || !g.session || this.finished) return;
     const snap = g.session.snapshot();
@@ -624,11 +612,10 @@ class App {
   }
 
   pauseToggle() {
-    if (this.game && this.game.session && !this.hosted) {
+    if (this.game && this.game.session) {
       if (this.game.session.paused) this.game.session.resume();
       else this.game.session.pause();
     }
-    // Hosted play: the authoritative clock keeps running; pause is cosmetic only.
   }
 
   /* ------------------------------------------------------------- learn flow */
@@ -866,9 +853,7 @@ class App {
   _teardownGame() {
     if (this._constraintTimer) { clearInterval(this._constraintTimer); this._constraintTimer = null; }
     if (this.game && this.game.session) this.game.session.dispose();
-    if (this.hosted && this.hosted.client) { try { this.hosted.client.leave(); } catch {} }
     this.game = null;
-    this.hosted = null;
     this.audio.humanId = HUMAN_ID;
     this.finished = false;
     this._hint = null;
@@ -925,6 +910,17 @@ class App {
     this.ui.announce(`Theme: ${t.name}.`, false);
   }
 
+  async invite() {
+    const url = this.platform.inviteLink();
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      this.ui.notify(this.ui.sh('inviteCopied'));
+    } catch {
+      this.ui.notify(this.ui.sh('inviteLink', { url }));
+    }
+  }
+
   profileSave(p) {
     // On-platform the table name comes from the StarHermit account nickname.
     if (this.platform.token) {
@@ -939,175 +935,6 @@ class App {
       this.ui.announce('Profile saved.', false);
       this.audio.play('notify');
     }
-  }
-
-  /* ------------------------------------------------------------- hosted play */
-
-  async _hostedConnect() {
-    if (!this.platform.localServer) {
-      throw new Error('Hosted tables need the game server. Run `npm start` and open the served page.');
-    }
-    if (this.hosted && this.hosted.client) return this.hosted.client;
-    const client = new HostedClient({ name: this.profile.name });
-    await client.connect();
-    return client;
-  }
-
-  async hostedCreate(opts) {
-    try {
-      const client = await this._hostedConnect();
-      this._wireHosted(client);
-      const seats = Math.min(6, Math.max(2, opts.players || 4));
-      const aiNames = ['Heron', 'Reed', 'Otter', 'Pike', 'Silt'];
-      const config = {
-        chips: 1000, smallBlind: 5, bigBlind: 10, maxHands: 24,
-        players: Array.from({ length: seats }, (_, i) =>
-          i === 0 ? { name: this.profile.name, ai: null } : { name: aiNames[(i - 1) % aiNames.length], ai: 'normal' }),
-      };
-      const lobby = await client.createRoom(config);
-      this.hosted = { client, code: lobby.code, snapshot: null, isHost: true, cmdCounter: 0 };
-      this.ui.showScreen('lobby', this._lobbyView(lobby));
-    } catch (e) {
-      this.ui.announce('Could not create a table: ' + (e && e.message), true);
-      this.audio.play('error');
-    }
-  }
-
-  async hostedJoin(code) {
-    try {
-      const client = await this._hostedConnect();
-      this._wireHosted(client);
-      const lobby = await client.joinRoom(code);
-      this.hosted = { client, code: lobby.code, snapshot: null, isHost: false, cmdCounter: 0 };
-      this.ui.showScreen('lobby', this._lobbyView(lobby));
-    } catch (e) {
-      this.ui.announce('Could not join: ' + (e && e.message), true);
-      this.audio.play('error');
-    }
-  }
-
-  _lobbyView(msg) {
-    const me = this.hosted && this.hosted.client.playerId;
-    const players = (msg.players || []).map((p) => ({
-      id: p.id, name: p.name, ready: p.ready, isHost: p.id === msg.host, away: p.connected === false,
-    }));
-    return {
-      code: msg.code,
-      players,
-      youId: me,
-      isHost: msg.host === me,
-      canStart: players.every((p) => p.ready || p.id === msg.host),
-      youReady: !!(msg.players || []).find((p) => p.id === me && p.ready),
-    };
-  }
-
-  _wireHosted(client) {
-    if (client._wiredByApp) return;
-    client._wiredByApp = true;
-    this.audio.humanId = client.playerId || HUMAN_ID;
-    client.on('lobby', (msg) => {
-      if (this.hosted) this.hosted.isHost = msg.host === client.playerId;
-      this.ui.lobbyUpdate(this._lobbyView(msg));
-    });
-    client.on('started', () => {
-      this.finished = false;
-      this._applyTheme(this._currentTheme());
-      this.audio.startMusic('game');
-      this.audio.startAmbience(this._currentTheme().id);
-      this.ui.showScreen('game');
-    });
-    client.on('snapshot', (msg) => this._hostedSnapshot(msg));
-    client.on('chat', (msg) => this.ui.showEvents([{ type: 'chat', name: msg.name, text: msg.text }]));
-    client.on('whileAway', (msg) => {
-      if (msg.missed && msg.missed.length) {
-        this.ui.announce(`While you were away: ${msg.missed.slice(-3).join(' · ')}`, false);
-      }
-    });
-    client.on('result', (msg) => this._hostedResult(msg));
-    client.on('error', (msg) => {
-      this.ui.announce(msg.message || 'Table error', true);
-      this.audio.play('error');
-    });
-    client.on('closed', (msg) => {
-      if (msg.reconnecting) this.ui.announce('Connection lost — reconnecting…', true);
-      else if (this.hosted) this.ui.announce('Reconnected.', false);
-    });
-  }
-
-  _hostedSnapshot(msg) {
-    if (!this.hosted) return;
-    this.hosted.snapshot = msg.snapshot;
-    const snap = msg.snapshot;
-    const myId = this.hosted.client.playerId;
-    let legal = [];
-    try { legal = legalActions(snap, myId); } catch { legal = []; }
-    const you = snap.players.find((p) => p.id === myId) || null;
-    this.ui.youId = myId;
-    this.ui.updateGame({
-      snapshot: snap, legal,
-      isYourTurn: !snap.terminal && legal.length > 0,
-      canUndo: false, mode: 'hosted', seatedYou: you,
-      hintsEnabled: false, hint: null,
-      objective: `Hosted table ${this.hosted.code || ''} — first to the top of the standings.`,
-      progress: `Hand ${snap.handNumber || 0}` + (snap.config && snap.config.maxHands ? ` of ${snap.config.maxHands}` : ''),
-    });
-    if (this.renderer && you) this.renderer.showSnapshot(snap, you.seat);
-    if (msg.events && msg.events.length) {
-      this.ui.showEvents(msg.events);
-      this.audio.mapEvents(msg.events);
-      if (this.renderer) this.renderer.playEvents(msg.events, {});
-    }
-  }
-
-  _hostedAction(type, amount) {
-    const h = this.hosted;
-    if (!h || !h.snapshot) return;
-    const command = {
-      id: `c-${h.client.playerId}-${h.cmdCounter++}`,
-      tick: h.snapshot.tick,
-      playerId: h.client.playerId,
-      type,
-    };
-    if (amount !== undefined) command.amount = amount;
-    h.client.sendCommand(command);
-    this.audio.play('click');
-  }
-
-  hostedReady(b) {
-    if (!this.hosted) return;
-    const force = !!b && this.hosted.isHost;
-    this.hosted.client.setReady(!!b, force);
-  }
-
-  hostedChat(text) {
-    if (this.hosted && text && text.trim()) this.hosted.client.sendChat(text.trim());
-  }
-
-  hostedLeave() {
-    if (this.hosted && this.hosted.client) { try { this.hosted.client.leave(); } catch {} }
-    this.hosted = null;
-    this.audio.humanId = HUMAN_ID;
-    this.ui.showScreen('modes');
-  }
-
-  _hostedResult(msg) {
-    if (this.finished) return;
-    this.finished = true;
-    const t = msg.terminal || {};
-    const myId = this.hosted && this.hosted.client.playerId;
-    const me = (t.standings || []).find((s) => s.id === myId);
-    const headline = me && me.place === 1 ? 'You take the table!' : `Table over — you finished #${me ? me.place : '?'}.`;
-    const breakdown = (t.standings || []).map((s) => ({
-      label: `#${s.place} ${s.name}`, value: `${s.chips} chips`,
-    }));
-    this.audio.startMusic('results');
-    this.ui.showResults({
-      headline, breakdown,
-      progress: { text: t.reason === 'maxHands' ? 'Hand limit reached.' : 'Last player standing.' },
-      achievements: [], comparison: null, canRetry: false, canNext: false,
-      recommendation: 'Head back to the lobby for a rematch, or try the daily challenge.',
-    });
-    this.ui.announce(headline, true);
   }
 }
 

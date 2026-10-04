@@ -18,13 +18,9 @@
  * is a real click/tap/key press on on-screen elements. No game code modified.
  *
  * Serving: the repo ships `server.js` (the declarative StarHermit script).
- * The game is fully playable offline — when `/api/v1/time` is unavailable or
- * returns no valid epoch, the platform adapter degrades to `local` mode and
- * every solo screen works without the backend. So this test embeds a minimal
- * node:http static server on an ephemeral port and answers /api/* probes with
- * 200 `{}` so the client drops into its documented offline path with zero
- * console noise. The authoritative live-hosted WebSocket path is not needed
- * for solo play.
+ * Without a launch token the client makes no own-server request at all, so
+ * this test embeds a minimal node:http static server on an ephemeral port
+ * and asserts it never sees an /api or /ws request.
  *
  * Run: npm run test:e2e  (or: node tests/e2e.mjs)
  */
@@ -58,17 +54,13 @@ const MIME = {
   '.txt': 'text/plain; charset=utf-8',
 };
 
+const ownServerCalls = [];
 const server = http.createServer(async (req, res) => {
   try {
     let p = decodeURIComponent(new URL(req.url, 'http://x').pathname);
     if (p === '/') p = '/index.html';
-    // No StarHermit backend here: answer API probes with empty JSON (200) so
-    // the platform adapter degrades to offline ('local') mode without noise.
-    if (p.startsWith('/api/')) {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end('{}');
-      return;
-    }
+    // Standalone the game must never call its own server.
+    if (/^\/(api|ws)(\/|$)/.test(p)) ownServerCalls.push(p);
     const file = path.normalize(path.join(ROOT, p));
     if (!file.startsWith(ROOT)) { res.writeHead(403).end('forbidden'); return; }
     const data = await readFile(file);
@@ -195,7 +187,7 @@ async function runPass(browser, name, ctxOpts, { full }) {
   page.on('console', (m) => {
     if ((m.type() !== 'error' && m.type() !== 'warning') || browserNoise.test(m.text())) return;
     const url = m.location()?.url || '';
-    if (/Failed to load resource/.test(m.text()) && /\/api\/|\/favicon/.test(url)) return;
+    if (/Failed to load resource/.test(m.text()) && /\/favicon/.test(url)) return;
     errors.push(`console: ${m.text()}`);
   });
 
@@ -353,6 +345,8 @@ try {
   await runPass(browser, 'desktop', { viewport: { width: 1280, height: 800 } }, { full: true });
   await runPass(browser, 'mobile',
     { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true }, { full: false });
+  if (ownServerCalls.length) throw new Error('standalone made own-server requests: ' + ownServerCalls.join(', '));
+  console.log('ok - standalone load made zero same-origin /api or /ws requests');
   console.log('\nE2E PASS — river-stakes, desktop + mobile, no page errors');
 } catch (e) {
   failures++;
