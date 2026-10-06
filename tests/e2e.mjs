@@ -286,6 +286,10 @@ async function runPass(browser, name, ctxOpts, { full }) {
       ok(`${name}: Hint assist shows guidance ("${(await page.textContent('.hint-text')).trim().slice(0, 42)}…")`);
 
       // Undo assist: commit one real decision, then undo it (returns our turn).
+      // Settle any pending auto-deal first (documented Skip key) so the chosen
+      // button is not swapped out by the auto-advance timer mid-click.
+      await page.keyboard.press('s');
+      await page.waitForFunction(() => !!document.querySelector('.tray-buttons .action-btn'), null, { timeout: 8000 });
       const firstLegal = (await readState(page)).legal;
       const firstType = pickAction(firstLegal);
       if (!firstType) throw new Error('no legal action at first human turn');

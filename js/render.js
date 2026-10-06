@@ -775,12 +775,16 @@ export class Renderer {
     }
   }
 
-  _placeSeats(viewerSeat) {
+  _placeSeats(viewerSeat, count = SEAT.COUNT) {
+    // Same ring as the DOM seat chips (css .seat-pos-N): clockwise from the
+    // viewer at the front, i.e. the next seat sits on the viewer's left;
+    // 2-4 players spread evenly, 5-6 use the six-seat spacing.
+    const n = count >= 2 && count <= 4 ? count : SEAT.COUNT;
     for (let i = 0; i < SEAT.COUNT; i++) {
-      const rel = (((i - viewerSeat) % SEAT.COUNT) + SEAT.COUNT) % SEAT.COUNT;
-      const a = (rel / SEAT.COUNT) * Math.PI * 2; // rel 0 = front (viewer)
+      const rel = i < n ? (((i - viewerSeat) % n) + n) % n : i;
+      const a = (rel / n) * Math.PI * 2; // rel 0 = front (viewer)
       const seat = this._seats[i];
-      seat.root.position.set(Math.sin(a) * SEAT.RX, 0, Math.cos(a) * SEAT.RZ);
+      seat.root.position.set(-Math.sin(a) * SEAT.RX, 0, Math.cos(a) * SEAT.RZ);
       seat.root.lookAt(0, 0, 0); // local +Z faces the table centre
       seat.root.updateWorldMatrix(true, false);
       seat.stackWorld.set(SEAT.STACK_X, 0, 0.12); seat.root.localToWorld(seat.stackWorld);
@@ -1643,7 +1647,8 @@ export class Renderer {
   showSnapshot(snap, viewerSeat = 0) {
     if (!snap || !Array.isArray(snap.players)) return;
     const vs = ((viewerSeat % SEAT.COUNT) + SEAT.COUNT) % SEAT.COUNT;
-    if (this._viewerSeat !== vs) { this._viewerSeat = vs; this._placeSeats(vs); }
+    const ring = vs + ':' + snap.players.length;
+    if (this._viewerSeat !== ring) { this._viewerSeat = ring; this._placeSeats(vs, snap.players.length); }
     const first = this._model === null;
     const dur = this.reducedMotion ? 0.1 : 0.35;
     const phase = snap.phase;

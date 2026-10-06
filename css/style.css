@@ -99,6 +99,10 @@ body {
   pointer-events: none; /* interactive children re-enable it */
   z-index: 1;
 }
+/* Large screens: ui-scale.js sets --ui-scale (exactly 1 up to 1600x1000).
+   The 3D canvas stays unzoomed; every DOM UI layer is zoomed once. vw/vh
+   lengths inside these layers are divided by the scale. */
+#ui, body > .modal-backdrop, #app-toast, #fps-meter, body > .webgl-fallback { zoom: var(--ui-scale, 1); }
 #ui > *, .modal-backdrop, .modal-backdrop * { pointer-events: auto; }
 
 .visually-hidden {
@@ -208,7 +212,7 @@ input[type="range"] { accent-color: var(--accent); min-height: var(--target); mi
 }
 .title-kicker { color: var(--river); letter-spacing: 0.25em; text-transform: uppercase; font-size: 0.8rem; margin: 0; }
 .title-logo {
-  font-size: clamp(2.6rem, 7vw, 4.2rem); margin: 0; color: var(--accent);
+  font-size: clamp(2.6rem, calc(7vw / var(--ui-scale, 1)), 4.2rem); margin: 0; color: var(--accent);
   text-shadow: 0 2px 0 rgba(0, 0, 0, 0.4);
 }
 .title-tag { color: var(--ink-dim); margin-block-start: 0; }
@@ -216,7 +220,7 @@ input[type="range"] { accent-color: var(--accent); min-height: var(--target); mi
 #btn-signin { display: block; margin: var(--gap) auto 0; }
 .app-toast {
   position: fixed; inset-block-end: calc(1.5rem + env(safe-area-inset-bottom)); inset-inline-start: 50%;
-  transform: translateX(-50%); z-index: 40; max-width: min(90vw, 46ch); overflow-wrap: anywhere; text-align: center;
+  transform: translateX(-50%); z-index: 40; max-width: min(calc(90vw / var(--ui-scale, 1)), 46ch); overflow-wrap: anywhere; text-align: center;
   background: var(--surface-2); border: 1px solid var(--accent); border-radius: 1rem; padding: 0.5em 1.2em; box-shadow: var(--shadow);
 }
 .app-toast[hidden] { display: none; }
@@ -352,6 +356,7 @@ input[type="range"] { accent-color: var(--accent); min-height: var(--target); mi
   background: var(--surface); border: 1px solid var(--line);
   font-weight: 700; color: var(--ink-dim);
 }
+.hud-pause { background: var(--surface); } /* legible over bright lanterns */
 .turn-banner.is-you { color: var(--accent-ink); background: var(--accent); border-color: transparent; }
 
 .rail {
@@ -471,7 +476,7 @@ input[type="range"] { accent-color: var(--accent); min-height: var(--target); mi
   background: var(--surface-2); border: 1px solid var(--accent);
   border-radius: 999px; padding: 0.35em 1.2em; box-shadow: var(--shadow);
   animation: toast-in 200ms ease-out;
-  max-width: min(90vw, 46ch); text-align: center;
+  max-width: min(calc(90vw / var(--ui-scale, 1)), 46ch); text-align: center;
 }
 .toast.is-out { opacity: 0; transition: opacity 400ms; }
 @keyframes toast-in { from { transform: translateY(-8px); opacity: 0; } to { transform: none; opacity: 1; } }
@@ -511,7 +516,7 @@ input[type="range"] { accent-color: var(--accent); min-height: var(--target); mi
   .drawer-toggle { display: inline-flex; }
   .rail {
     position: fixed; inset-block: calc(3.6rem + env(safe-area-inset-top)) calc(0.5rem + env(safe-area-inset-bottom));
-    width: min(20rem, 85vw); z-index: 20;
+    width: min(20rem, calc(85vw / var(--ui-scale, 1))); z-index: 20;
     box-shadow: var(--shadow);
     transition: transform 200ms ease-out, visibility 200ms;
     visibility: hidden;
@@ -540,6 +545,10 @@ input[type="range"] { accent-color: var(--accent); min-height: var(--target); mi
   .card-small { width: 1.6em; }
   .modal { width: 100%; }
   .turn-banner { font-size: 0.9rem; padding: 0.3em 0.9em; }
+  /* top bar: buttons keep their label width; the banner takes what is left */
+  .hud-top { gap: 6px; }
+  .hud-top .btn { flex: none; padding-inline: 0.5em; font-size: 0.8rem; }
+  .hud-top .turn-banner { flex: 1 1 0; min-width: 0; text-align: center; font-size: 0.78rem; padding: 0.25em 0.5em; line-height: 1.2; border-radius: 1rem; }
 }
 
 /* Landscape mobile: keep a narrow inline status rail. */
