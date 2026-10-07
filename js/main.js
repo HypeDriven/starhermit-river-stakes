@@ -801,14 +801,22 @@ class App {
           ? 'Come back tomorrow for a fresh deal, or warm up in Practice.'
           : 'Try a Journey stage or a Challenge for a sterner test.';
 
+    // Signed in: ranked tables (Daily, Challenge) post their final chips to the platform board.
+    const postLb = (g.mode === 'daily' || g.mode === 'challenge') && !!this.platform.token;
     this.audio.startMusic('results');
     this.ui.showResults({
       headline, breakdown, progress,
       achievements: newAchievements,
-      comparison,
+      comparison, leaderboard: postLb,
       canRetry: true, canNext,
       recommendation,
     });
+    if (postLb) {
+      const chips = standing ? standing.chips : ((summary.goalsContext.finalChips || {})[HUMAN_ID] || 0);
+      this.platform.postHighScore(chips).then((r) => {
+        if (this.game === g && this.ui.screen === 'results') this.ui.setResultsLeaderboard(r);
+      });
+    }
     this.ui.announce(headline, true);
   }
 

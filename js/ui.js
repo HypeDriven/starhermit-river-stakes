@@ -941,8 +941,16 @@ export class UI {
   /**
    * Results screen.
    * data: { headline, breakdown:[{label,value}], progress, achievements:[keys],
-   *         comparison, canRetry, canNext, recommendation }
+   *         comparison, leaderboard (show the platform rank line), canRetry, canNext, recommendation }
    */
+  /** Results leaderboard line: { posted, rank } from the platform score post. */
+  setResultsLeaderboard(r) {
+    const line = this.root.querySelector('.results-lb');
+    if (!line || !r) return;
+    line.textContent = !r.posted ? shText('lbNotPosted')
+      : r.rank ? shText('lbRank', { rank: r.rank }) : shText('lbPosted');
+  }
+
   showResults(data) {
     const d = data || {};
     const s = this.s;
@@ -979,6 +987,7 @@ export class UI {
         progressNode ? el('section', {}, el('h2', { text: s.results.progressTitle }), progressNode) : null,
         achNodes.length ? el('section', {}, el('h2', { text: s.results.achievementsTitle }), el('ul', { class: 'card-list' }, achNodes)) : null,
         d.comparison ? el('p', { class: 'results-compare', text: d.comparison }) : null,
+        d.leaderboard ? el('p', { class: 'results-compare results-lb', text: shText('lbPosting') }) : null,
         d.recommendation ? el('p', { class: 'results-next' }, el('strong', { text: s.results.recommendation + ': ' }), d.recommendation) : null,
         el('div', { class: 'field-row results-actions' },
           d.canRetry !== false ? el('button', {

@@ -141,6 +141,33 @@ test('standalone locally: no network at all; achievements, boards and clock stay
   assert.equal(await p.unlockAchievement('first_flow'), false);
   await p.submitScore('daily:2026-09-11', { value: 1200, ruleset: 'fixed-limit', contentVersion: 1, seed: 7, assists: [], durationMs: 5 });
   assert.equal((await p.getBoard('daily:2026-09-11'))[0].value, 1200);
+  assert.deepEqual(await p.postHighScore(1200), { posted: false, rank: null });
   assert.deepEqual(net.calls, []);
   assert.deepEqual(local, []);
+});
+
+test('hosted: postHighScore posts high-score and reads the rank', async () => {
+  launch('#game_token=' + TOKEN, 'river-stakes.starhermit.com');
+  const p = await Platform.init();
+  const sent = [];
+  globalThis.StarHermit.submitScores = async (sc) => { sent.push(sc); return Object.keys(sc); };
+  globalThis.StarHermit.leaderboard = async (key) => ({ items: key === 'high-score' ? [{ userId: SUB, rank: 3 }] : [] });
+  assert.deepEqual(await p.postHighScore(1480), { posted: true, rank: 3 });
+  assert.deepEqual(sent, [{ 'high-score': 1480 }]);
+  globalThis.StarHermit.submitScores = async () => [];
+  assert.deepEqual(await p.postHighScore(10), { posted: false, rank: null });
+});
+
+test('leaderboard line strings in every locale', async () => {
+  const { shText } = await import('../js/sh-i18n.js');
+  const nav = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  try {
+    for (const l of ['en-US', 'en-GB', 'es-419', 'es-ES', 'de-DE', 'fr-FR', 'fr-CA', 'pt-BR', 'it-IT']) {
+      Object.defineProperty(globalThis, 'navigator', { value: { language: l }, configurable: true });
+      for (const k of ['lbPosting', 'lbPosted', 'lbNotPosted']) assert.notEqual(shText(k), k, l + ' ' + k);
+      assert.match(shText('lbRank', { rank: 4 }), /#4/, l);
+    }
+    Object.defineProperty(globalThis, 'navigator', { value: { language: 'de-DE' }, configurable: true });
+    assert.equal(shText('lbRank', { rank: 2 }), 'Platz in der Bestenliste: #2');
+  } finally { if (nav) Object.defineProperty(globalThis, 'navigator', nav); else delete globalThis.navigator; }
 });

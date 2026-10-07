@@ -209,7 +209,8 @@ No module may mutate rules state except through a validated command. Rendering c
 
 ### Achievements and leaderboards
 - Declare a small static achievement set: first completion, mechanic mastery, a sustained streak, a difficult content milestone, and an accessibility-neutral long-term goal. Keys are stable, lowercase identifiers; unlocks are idempotent. A pure browser game has no server-authoritative unlock path: unlocks stay local and ride in the cloud-saved doc.
-- Leaderboards are platform-owned and read-only: the board id comes from `StarHermit.getGame()` (or the first of `leaderboards()`), entries from `leaderboardEntries()` rendered with profile nicknames; no standings panel when there is no board. Personal bests (ruleset, content version, seed, assists, duration attached) stay in localStorage + the cloud mirror; the client never submits scores.
+- Leaderboard reads: the board id comes from `StarHermit.getGame()` (or the first of `leaderboards()`), entries from `leaderboardEntries()` rendered with profile nicknames; no standings panel when there is no board. Personal bests (ruleset, content version, seed, assists, duration attached) stay in localStorage + the cloud mirror.
+- Leaderboard submit: when signed in, every finished ranked table (Daily, Challenge) posts the player's final chips through `StarHermit.submitScores` (`platform.postHighScore`: a practice session whose platform script `score-script.js` posts it to the `high-score` board — integer, higher is better, 0–1,000,000). The results screen shows "Posting score…", then "Leaderboard rank: #N" (or posted / not posted), localized in the nine locales (`js/sh-i18n.js`). Learn, Journey and Practice post nothing; standalone posts nothing and shows no line.
 
 ### Sessions and transport
 - The client is solo against the house AI. The repo's `server.js` still contains a dev-only JSON-room relay over `/ws` (used by its tests), but the client never connects to it; a future multiplayer mode would use StarHermit realtime rooms (host-routed) for lobby/matchmaking.
@@ -217,7 +218,7 @@ No module may mutate rules state except through a validated command. Rendering c
 - Use gameplay WebSocket events for immediate move/result updates, but make REST session detail the reconnect source of truth. The peer relay is unnecessary for the initial turn-based design.
 
 ### Publishing and operations
-- Keep the authoritative script inside the distribution and declare it with `server=server.js`. Choose a digest-pinned container only if profiling proves the sandbox unsuitable; no initial design here requires one.
+- The platform script is `score-script.js` (canonical copy in the games repo's `tools/score-script.js`), declared with `server=score-script.js`; `server.js` is the local dev server. Choose a digest-pinned container only if profiling proves the sandbox unsuitable; no initial design here requires one.
 - Define control defaults, achievement metadata, and versioned settings before release. Publish immutable build assets, verify the launch path, maintain migration tests for saves, and expose no secret configuration to the client.
 - Capture anonymous funnel events only for start, tutorial step, round end, retry, settings change, and error category. Avoid raw text, precise personal data, and cross-title tracking.
 

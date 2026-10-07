@@ -288,6 +288,24 @@ export class Platform {
     return full;
   }
 
+  /**
+   * Signed in only: post a finished ranked table's final chips to the platform
+   * `high-score` board (score-script.js). Resolves { posted, rank } — the
+   * player's rank there, or null. Standalone → not posted, no request.
+   */
+  async postHighScore(chips) {
+    const sh = SH();
+    if (!this.token || !sh || typeof sh.submitScores !== 'function') return { posted: false, rank: null };
+    let keys = [];
+    try { keys = await sh.submitScores({ 'high-score': Math.max(0, Math.round(chips)) }); } catch { keys = []; }
+    if (!keys.includes('high-score')) return { posted: false, rank: null };
+    try {
+      const r = await sh.leaderboard('high-score', { pageSize: 100 });
+      const me = (r.items || []).find((i) => i.userId === this.userId);
+      return { posted: true, rank: me ? me.rank : null };
+    } catch { return { posted: true, rank: null }; }
+  }
+
   /** Personal-best board: local records only, never a network request. */
   async getBoard(boardId) {
     const boards = this.loadJSON(STORAGE.boards, {});
