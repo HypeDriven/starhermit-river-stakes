@@ -74,7 +74,7 @@ export class AudioSystem {
         const g = this.ctx.createGain();
         g.gain.value = this.volumes[name];
         g.connect(this.masterGain);
-        this.buses[name] = g;
+        this.buses[name] = (globalThis.GameOptions ? globalThis.GameOptions.tagBus(g, name) : g);
       }
       this._applyMaster();
     }
@@ -122,7 +122,7 @@ export class AudioSystem {
   _tone({ type = 'sine', freq = 440, freqEnd = 0, t = 0, attack = 0.004, dur = 0.1,
           peak = 0.2, bus = 'sfx', detune = 0 }) {
     const ctx = this.ctx;
-    const o = ctx.createOscillator();
+    const o = (globalThis.GameOptions ? globalThis.GameOptions.trackSource(ctx.createOscillator(), bus) : ctx.createOscillator());
     const g = ctx.createGain();
     o.type = type;
     o.frequency.setValueAtTime(Math.max(1, freq), t);
@@ -138,7 +138,7 @@ export class AudioSystem {
   _noise({ t = 0, dur = 0.08, peak = 0.2, filterType = 'bandpass', freq = 2000,
            q = 1, bus = 'sfx', attack = 0.002 }) {
     const ctx = this.ctx;
-    const src = ctx.createBufferSource();
+    const src = (globalThis.GameOptions ? globalThis.GameOptions.trackSource(ctx.createBufferSource(), bus) : ctx.createBufferSource());
     src.buffer = this._whiteNoise();
     src.loop = true;
     const f = ctx.createBiquadFilter();
@@ -176,7 +176,7 @@ export class AudioSystem {
       return false;
     }
     if (rec.state !== 'ready') return false;
-    const src = this.ctx.createBufferSource();
+    const src = (globalThis.GameOptions ? globalThis.GameOptions.trackSource(this.ctx.createBufferSource(), name) : this.ctx.createBufferSource());
     src.buffer = rec.buffer;
     src.connect(this.buses.sfx);
     src.start();
@@ -322,7 +322,7 @@ export class AudioSystem {
       last = (last + 0.02 * white) / 1.02;
       data[i] = last * 3.5;
     }
-    const src = ctx.createBufferSource();
+    const src = (globalThis.GameOptions ? globalThis.GameOptions.trackSource(ctx.createBufferSource(), null) : ctx.createBufferSource());
     src.buffer = buf; src.loop = true;
     const lp = ctx.createBiquadFilter();
     lp.type = 'lowpass'; lp.frequency.value = 380 + rng() * 240; lp.Q.value = 0.4;
