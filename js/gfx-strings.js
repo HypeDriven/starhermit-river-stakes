@@ -1,5 +1,6 @@
 // River Stakes — localized strings for the Graphics settings section.
-// The rest of the game is English-only; this panel follows navigator.language.
+// The panel follows the game language (js/i18n.js via ./lang.js).
+import { lang } from './lang.js';
 
 const EN_US = {
   heading: 'Graphics',
@@ -205,8 +206,7 @@ export function pickLocale(tag) {
   return BASE[l] || 'en-US';
 }
 
-/** Graphics strings for a locale tag (navigator.language when omitted). */
+/** Graphics strings for a locale tag (the game language when omitted). */
 export function gfxStrings(tag) {
-  const nav = typeof navigator !== 'undefined' ? navigator.language : 'en-US';
-  return GFX_STRINGS[pickLocale(tag || nav)];
+  return GFX_STRINGS[pickLocale(tag || lang())];
 }

@@ -1,5 +1,10 @@
 // River Stakes — versioned content data: themes, tutorial, journey, challenges, daily, achievements
 import { seedFromString, Rng } from './rules/rng.js';
+import { T } from './lang.js';
+
+// Goal details: `detail` is the text in the current language, `detailFn`
+// re-renders it after a language change.
+const D = (key, vars) => ({ detail: T(key, vars), detailFn: () => T(key, vars) });
 
 export const CONTENT_VERSION = 1;
 
@@ -112,18 +117,18 @@ export const TUTORIAL = [
         text: 'The table is set and the dealer button sits in front of you. Start the hand to post the blinds.',
         requireAction: 'advance',
         hint: (state, legal) => legal.some((a) => a.type === 'advance')
-          ? 'Press Deal to post the blinds and receive your cards.'
-          : 'Wait for the table to be ready, then deal the hand.',
+          ? T('Press Deal to post the blinds and receive your cards.')
+          : T('Wait for the table to be ready, then deal the hand.'),
       },
       {
         text: 'The blinds are in: you posted the small blind, Moss posted the big blind. These chips seed the pot.',
         requireEvent: 'post',
-        hint: (state, legal) => 'Watch the pot — the small and big blinds were just added automatically.',
+        hint: (state, legal) => T('Watch the pot — the small and big blinds were just added automatically.'),
       },
       {
         text: 'Two private cards slide to each player. Only you can see yours.',
         requireEvent: 'deal',
-        hint: (state, legal) => 'Your two face-up cards at the bottom are yours alone.',
+        hint: (state, legal) => T('Your two face-up cards at the bottom are yours alone.'),
       },
     ],
   },
@@ -140,16 +145,16 @@ export const TUTORIAL = [
         hint: (state, legal) => {
           const call = legal.find((a) => a.type === 'call');
           return call
-            ? `Press Call to put in the ${call.amount} chips needed to match the big blind.`
-            : 'No bet to match right now — wait for the action to reach you.';
+            ? T('Press Call to put in the {n} chips needed to match the big blind.', { n: call.amount })
+            : T('No bet to match right now — wait for the action to reach you.');
         },
       },
       {
         text: 'On later streets, when nobody has bet yet, you can check to pass without adding chips.',
         requireEvent: 'street',
         hint: (state, legal) => legal.some((a) => a.type === 'check')
-          ? 'Check is available — it costs nothing and keeps you in the hand.'
-          : 'If a bet is live, calling matches it; if not, checking is free.',
+          ? T('Check is available — it costs nothing and keeps you in the hand.')
+          : T('If a bet is live, calling matches it; if not, checking is free.'),
       },
     ],
   },
@@ -166,9 +171,9 @@ export const TUTORIAL = [
         hint: (state, legal) => {
           const bet = legal.find((a) => a.type === 'bet');
           const raise = legal.find((a) => a.type === 'raise');
-          if (bet) return `Press Bet to put in the fixed bet of ${bet.amount} chips.`;
-          if (raise) return `Press Raise to make it ${raise.amount} chips total this round.`;
-          return 'Wait until the action reaches you, then bet or raise.';
+          if (bet) return T('Press Bet to put in the fixed bet of {n} chips.', { n: bet.amount });
+          if (raise) return T('Press Raise to make it {n} chips total this round.', { n: raise.amount });
+          return T('Wait until the action reaches you, then bet or raise.');
         },
       },
       {
@@ -179,8 +184,8 @@ export const TUTORIAL = [
           const raise = legal.find((a) => a.type === 'raise');
           const sized = bet || raise;
           return sized
-            ? `The fixed amount on this street is ${sized.amount} chips.`
-            : 'Fixed-limit means the bet size is never a guess — it is set by the street.';
+            ? T('The fixed amount on this street is {n} chips.', { n: sized.amount })
+            : T('Fixed-limit means the bet size is never a guess — it is set by the street.');
         },
       },
     ],
@@ -196,13 +201,13 @@ export const TUTORIAL = [
         text: 'A bet is live and your hand is weak. Let this one go.',
         requireAction: 'fold',
         hint: (state, legal) => legal.some((a) => a.type === 'fold')
-          ? 'Press Fold to give up the hand without adding another chip.'
-          : 'Folding is only possible when the action is on you — wait for your turn.',
+          ? T('Press Fold to give up the hand without adding another chip.')
+          : T('Folding is only possible when the action is on you — wait for your turn.'),
       },
       {
         text: 'The hand ends the moment everyone but one player has folded. The pot goes to the last player standing.',
         requireEvent: 'handEnd',
-        hint: (state, legal) => 'After your fold the pot is awarded immediately — no showdown needed.',
+        hint: (state, legal) => T('After your fold the pot is awarded immediately — no showdown needed.'),
       },
     ],
   },
@@ -218,23 +223,23 @@ export const TUTORIAL = [
         requireEvent: 'street',
         hint: (state, legal) => {
           const call = legal.find((a) => a.type === 'call');
-          if (call) return `Call ${call.amount} to see the flop.`;
+          if (call) return T('Call {n} to see the flop.', { n: call.amount });
           return legal.some((a) => a.type === 'check')
-            ? 'Check to see the next community cards for free.'
-            : 'Match the action to reach the flop.';
+            ? T('Check to see the next community cards for free.')
+            : T('Match the action to reach the flop.');
         },
       },
       {
         text: 'That was a new street. Two more stages may follow: the turn, then the river.',
         requireEvent: 'street',
         hint: (state, legal) => legal.some((a) => a.type === 'check')
-          ? 'Check or call to keep moving through the streets.'
-          : 'Each new community card is followed by a betting round.',
+          ? T('Check or call to keep moving through the streets.')
+          : T('Each new community card is followed by a betting round.'),
       },
       {
         text: 'One more stage and the board is complete — five shared cards at most.',
         requireEvent: 'street',
-        hint: (state, legal) => 'After the river there are no more cards — just one last betting round.',
+        hint: (state, legal) => T('After the river there are no more cards — just one last betting round.'),
       },
     ],
   },
@@ -250,16 +255,16 @@ export const TUTORIAL = [
         requireEvent: 'showdown',
         hint: (state, legal) => {
           const call = legal.find((a) => a.type === 'call');
-          if (call) return `Call ${call.amount} — never fold while you are trying to reach showdown.`;
+          if (call) return T('Call {n} — never fold while you are trying to reach showdown.', { n: call.amount });
           return legal.some((a) => a.type === 'check')
-            ? 'Check — keeping the pot small still reaches showdown.'
-            : 'Match any bet and the hands will be revealed after the river.';
+            ? T('Check — keeping the pot small still reaches showdown.')
+            : T('Match any bet and the hands will be revealed after the river.');
         },
       },
       {
         text: 'Both hands were revealed and ranked. The best five cards took the pot.',
         requireEvent: 'handEnd',
-        hint: (state, legal) => 'Read the revealed hands: the named rank beside each shows why it won or lost.',
+        hint: (state, legal) => T('Read the revealed hands: the named rank beside each shows why it won or lost.'),
       },
     ],
   },
@@ -535,33 +540,33 @@ export function evaluateGoals(goals, summary, humanId) {
     switch (goal.type) {
       case 'winMatch': {
         const ok = terminal && place === 1;
-        return { goal, ok, detail: ok ? 'Finished 1st.' : terminal ? `Finished ${place ?? '?'} — 1st required.` : 'Match is not over yet.' };
+        return { goal, ok, ...(ok ? D('Finished 1st.') : terminal ? D('Finished {place} — 1st required.', { place: place ?? '?' }) : D('Match is not over yet.')) };
       }
       case 'finishTop': {
         const ok = terminal && place != null && place <= goal.place;
-        return { goal, ok, detail: ok ? `Finished ${place}, top ${goal.place}.` : terminal ? `Finished ${place ?? '?'} — top ${goal.place} required.` : 'Match is not over yet.' };
+        return { goal, ok, ...(ok ? D('Finished {place}, top {top}.', { place, top: goal.place }) : terminal ? D('Finished {place} — top {top} required.', { place: place ?? '?', top: goal.place }) : D('Match is not over yet.')) };
       }
       case 'chipsAtLeast': {
         const ok = chips >= goal.amount;
-        return { goal, ok, detail: `${chips} chips — ${goal.amount} required.` };
+        return { goal, ok, ...D('{n} chips — {need} required.', { n: chips, need: goal.amount }) };
       }
       case 'winHands': {
         const n = stats.handsWon || 0;
         const ok = n >= goal.count;
-        return { goal, ok, detail: `${n} hands won — ${goal.count} required.` };
+        return { goal, ok, ...D('{n} hands won — {need} required.', { n, need: goal.count }) };
       }
       case 'winShowdowns': {
         const n = stats.showdownsWon || 0;
         const ok = n >= goal.count;
-        return { goal, ok, detail: `${n} showdowns won — ${goal.count} required.` };
+        return { goal, ok, ...D('{n} showdowns won — {need} required.', { n, need: goal.count }) };
       }
       case 'surviveHands': {
         const alive = chips > 0;
         const ok = handsPlayed >= goal.count && alive;
-        return { goal, ok, detail: alive ? `${handsPlayed} hands played — ${goal.count} required.` : 'Busted before the hand count was reached.' };
+        return { goal, ok, ...(alive ? D('{n} hands played — {need} required.', { n: handsPlayed, need: goal.count }) : D('Busted before the hand count was reached.')) };
       }
       default:
-        return { goal, ok: false, detail: `Unknown goal type '${goal.type}'.` };
+        return { goal, ok: false, ...D('Unknown goal type: {type}.', { type: goal.type }) };
     }
   });
   return { passed: results.length > 0 && results.every((r) => r.ok), results };

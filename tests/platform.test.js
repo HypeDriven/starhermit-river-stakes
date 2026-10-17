@@ -33,7 +33,7 @@ function stubNet() {
     if (url === '/api/v1/users/u-2/profile') return json(200, { nickname: 'Dealer Dan' });
     if (url === '/api/v1/me/cloud-saves/game%3Ariver-stakes') {
       if (method === 'GET') return store.save ? new Response(store.save, { status: 200 }) : json(404, {});
-      if (method === 'PUT') { store.save = Buffer.from(JSON.parse(init.body).dataBase64, 'base64'); return json(200, {}); }
+      if (method === 'PUT') { store.save = Buffer.from(JSON.parse(init.body).dataBase64, 'base64'); return json(200, { etag: `"v${calls.length}"` }); }
     }
     if (url === '/api/v1/games/river-stakes/settings') {
       if (method === 'GET') return json(200, { settings: { audio: { music: 0.2 }, other: 1 } });
@@ -112,7 +112,7 @@ test('hosted: bindings from the controls API; read-only board with nicknames', a
 });
 
 test('standalone on the platform host: no network at all; sign-in offered', async () => {
-  launch('', 'river-stakes.starhermit.com');
+  launch('', '0b9d6f2e-3c4a-4e5b-9a7c-1d2e3f405162.starhermit.com');
   const p = await Platform.init();
   assert.equal(p.mode, 'local');
   assert.equal(p.canSignIn(), true);
@@ -170,4 +170,61 @@ test('leaderboard line strings in every locale', async () => {
     Object.defineProperty(globalThis, 'navigator', { value: { language: 'de-DE' }, configurable: true });
     assert.equal(shText('lbRank', { rank: 2 }), 'Platz in der Bestenliste: #2');
   } finally { if (nav) Object.defineProperty(globalThis, 'navigator', nav); else delete globalThis.navigator; }
+});
+
+test('hosted: a lost conditional save emits onConflict; the merge keeps both devices\' progress', async () => {
+  const { mergeProgress, mergeBoards } = await import('../js/merge.js');
+  // ETag-versioned slot: writes after a load are conditional (If-Match / If-None-Match).
+  let slot = null, version = 0;
+  const puts = [];
+  net.fetch = async (url, init = {}) => {
+    const method = init.method || 'GET';
+    const h = init.headers || {};
+    const json = (code, body) => new Response(JSON.stringify(body), { status: code, headers: { 'Content-Type': 'application/json' } });
+    if (url === '/api/v1/me/cloud-saves/game%3Ariver-stakes/info') return json(200, slot ? { exists: true, etag: `"v${version}"` } : { exists: false });
+    if (url === '/api/v1/me/cloud-saves/game%3Ariver-stakes') {
+      if (method === 'GET') return slot ? new Response(slot, { status: 200 }) : json(404, {});
+      const cur = slot ? `"v${version}"` : null;
+      puts.push(h['If-Match'] || h['If-None-Match'] || null);
+      if ((h['If-Match'] && h['If-Match'] !== cur) || (h['If-None-Match'] === '*' && slot)) return json(412, { error: 'precondition failed', etag: cur });
+      slot = Buffer.from(JSON.parse(init.body).dataBase64, 'base64');
+      version++;
+      return json(200, { etag: `"v${version}"` });
+    }
+    return json(404, {});
+  };
+  launch(`#game_token=${TOKEN}`, 'river-stakes.starhermit.com');
+  const p = await Platform.init();
+  assert.equal(await p.cloudLoad(), null); // empty slot: the first write is If-None-Match: *
+  let conflicts = 0;
+  p.onConflict(() => { conflicts++; });
+  const mine = { journey: { stars: { j01: 3, j02: 1 }, unlocked: 2 }, lifetime: { hands: 40, handsWon: 12, bestHand: 'Flush' }, tutorial: { t01: true }, achievements: { first_flow: 500 } };
+  p.scheduleCloudSave({ v: 1, progress: mine, boards: {} }, 0);
+  await p.flushCloud();
+  assert.equal(puts[0], '*');
+  // Another device saves different progress.
+  const theirs = { journey: { stars: { j01: 1, j03: 2 }, unlocked: 3 }, lifetime: { hands: 55, handsWon: 9, bestHand: 'Straight' }, challenges: { c02: true }, achievements: { first_flow: 300, mechanic_master: 900 }, daily: { lastDate: '2026-10-16', streak: 4 } };
+  slot = Buffer.from(globalThis.StarHermit._zip('save.json', new TextEncoder().encode(JSON.stringify({ v: 1, progress: theirs }))));
+  version++;
+  p.scheduleCloudSave({ v: 1, progress: mine, boards: {} }, 0);
+  await p.flushCloud();
+  await sleep(10);
+  assert.equal(conflicts, 1);
+  assert.equal(p.saveConflicted(), true);
+  const remote = await p.cloudLoad(); // reload lifts the block
+  assert.equal(p.saveConflicted(), false);
+  const merged = mergeProgress(mine, remote.progress);
+  assert.deepEqual(merged.journey, { stars: { j01: 3, j02: 1, j03: 2 }, unlocked: 3 });
+  assert.equal(merged.lifetime.hands, 55);
+  assert.equal(merged.lifetime.handsWon, 12);
+  assert.equal(merged.lifetime.bestHand, 'Flush');
+  assert.deepEqual(merged.tutorial, { t01: true });
+  assert.deepEqual(merged.challenges, { c02: true });
+  assert.deepEqual(merged.achievements, { first_flow: 300, mechanic_master: 900 });
+  assert.deepEqual(merged.daily, { lastDate: '2026-10-16', streak: 4 });
+  p.scheduleCloudSave({ v: 1, progress: merged, boards: {} }, 0);
+  assert.equal(await p.flushCloud(), true);
+  assert.equal(puts.at(-1), '"v2"', 'merge written on top of the other device\'s version');
+  const boards = mergeBoards({ daily: [{ value: 10, ts: 1 }] }, { daily: [{ value: 30, ts: 2 }, { value: 10, ts: 1 }] });
+  assert.deepEqual(boards.daily.map((e) => e.value), [30, 10]);
 });

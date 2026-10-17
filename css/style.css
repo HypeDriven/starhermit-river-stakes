@@ -160,7 +160,14 @@ input[type="range"] { accent-color: var(--accent); min-height: var(--target); mi
 
 .field { display: flex; flex-direction: column; gap: 0.3em; margin-block: 0.6em; }
 .field-check { flex-direction: row; align-items: center; gap: 0.6em; min-height: var(--target); }
-.field-slider { display: grid; grid-template-columns: minmax(8rem, 1fr) 2fr 3ch; align-items: center; gap: 0.8em; }
+.field-slider { display: grid; grid-template-columns: minmax(8rem, 1fr) minmax(0, 2fr) 4ch; align-items: center; gap: 0.8em; }
+.field-slider > span { min-width: 0; overflow-wrap: anywhere; hyphens: auto; }
+.field-slider > input { min-width: 0; width: 100%; }
+/* Narrow screens: the label takes its own row so long translations never push the slider out. */
+@media (max-width: 480px) {
+  .field-slider { grid-template-columns: minmax(0, 1fr) 4ch; row-gap: 0.2em; }
+  .field-slider > span { grid-column: 1 / -1; }
+}
 .field-row { display: flex; flex-wrap: wrap; gap: var(--gap); align-items: center; margin-block: 0.6em; }
 .field-group { border: 1px solid var(--line); border-radius: var(--radius); padding: 0.6em 1em; }
 .slider-value { text-align: end; color: var(--ink-dim); }

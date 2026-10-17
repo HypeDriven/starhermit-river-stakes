@@ -13,6 +13,8 @@ import { seedFromString, Rng } from './rules/rng.js';
 import { legalActions } from './rules/engine.js';
 import { chooseAction } from './rules/ai.js';
 import { STORAGE, SAVE_VERSION } from './version.js';
+import { T, N, onLanguage } from './lang.js';
+import { mergeProgress, mergeBoards } from './merge.js';
 
 const HUMAN_ID = 'you';
 const OPPONENT_POOL = [
@@ -25,6 +27,12 @@ const DIFFICULTY_MIX = {
   normal: ['easy', 'normal', 'normal'],
   hard: ['normal', 'hard', 'hard'],
 };
+
+/** "✓ detail  ✗ detail" for evaluated goals, rendered in the current language. */
+function goalsLine(goalsEval) {
+  if (!goalsEval) return '';
+  return () => goalsEval.results.map((r) => (r.ok ? '✓ ' : '✗ ') + (r.detailFn ? r.detailFn() : r.detail)).join('  ');
+}
 
 function mergeDeep(target, src) {
   for (const [k, v] of Object.entries(src || {})) {
@@ -74,7 +82,7 @@ class App {
       this.progress.lifetime = { hands: 0, handsWon: 0, showdownsWon: 0, potsWon: 0, bestHand: null, journeysCleared: 0, dailiesPlayed: 0 };
     }
 
-    // Hosted: adopt the account nickname and prefer the remote save on conflict.
+    // Hosted: adopt the account nickname and merge the cloud save with local progress.
     if (this.platform.token) {
       try {
         const identity = await this.platform.loadIdentity();
@@ -85,8 +93,10 @@ class App {
       } catch { /* keep the locally cached name */ }
       try {
         const remote = await this.platform.cloudLoad();
-        if (remote) this._applyCloudDoc(remote);
-        else this._persistCloud(); // empty slot: seed it from the local copy
+        // Merge with this device's progress; save back when it added anything
+        // (an empty slot is seeded from the local copy).
+        if (!remote || this._applyCloudDoc(remote)) this._persistCloud();
+        this.platform.onConflict(() => this._resolveConflict());
       } catch { /* keep local progress */ }
       // Per-player settings KV: the platform value wins over local values.
       const ps = await this.platform.platformSettings();
@@ -110,6 +120,9 @@ class App {
 
     this.ui = new UI(document.getElementById('ui'), this._controller());
     this.ui.youId = HUMAN_ID;
+    // Language change (Settings → Language or the account preference arriving):
+    // re-render the UI and the table view in place, keeping the game running.
+    onLanguage(() => this._relabel());
     this.ui.setBindings(this.platform.bindings);
     this.platform.onAuth((a) => {
       if (!a.signedIn) this.ui.announce(this.ui.sh('signedOut'), false);
@@ -187,7 +200,7 @@ class App {
       '<button type="button" class="btn btn-small">Dismiss</button>';
     note.querySelector('button').onclick = () => note.remove();
     document.body.append(note);
-    this.ui.announce('3D view unavailable; using the accessible table view.', false);
+    this.ui.announce(T('3D view unavailable; using the accessible table view.'), false);
   }
 
   /* ------------------------------------------------------------- themes */
@@ -244,32 +257,46 @@ class App {
   }
 
   /**
-   * Merge a cloud-saved doc over the local state. On conflict the remote copy
-   * wins; localStorage remains the offline cache.
+   * Merge a cloud-saved doc with the local state (mergeProgress/mergeBoards:
+   * nothing either device earned is dropped); localStorage remains the
+   * offline cache. Returns true when the local side had something the cloud
+   * copy lacked (so the merge should be saved back).
    */
   _applyCloudDoc(doc) {
+    let grew = false;
     if (doc.progress && typeof doc.progress === 'object') {
-      this.progress = mergeDeep(this.progress, doc.progress);
+      const local = { ...this.progress, achievements: this.platform.achievements() };
+      this.progress = mergeProgress(local, doc.progress);
+      grew = JSON.stringify(this.progress) !== JSON.stringify(mergeProgress(doc.progress, doc.progress));
       this.platform.saveJSON(STORAGE.progress, this.progress);
-    }
-    if (doc.boards && typeof doc.boards === 'object') {
-      this.platform.saveJSON(STORAGE.boards, doc.boards);
-    }
+    } else grew = true;
+    const boards = mergeBoards(this.platform.loadJSON(STORAGE.boards, {}), doc.boards);
+    if (JSON.stringify(boards) !== JSON.stringify(mergeBoards({}, doc.boards))) grew = true;
+    this.platform.saveJSON(STORAGE.boards, boards);
     if (!this.platform.userId && doc.profile && typeof doc.profile.name === 'string' && doc.profile.name) {
       this.profile.name = doc.profile.name; // no account identity: restore the cached name
     }
+    return grew;
+  }
+
+  /** Another device saved since our load: reload the cloud doc, merge it in, save the merge. */
+  async _resolveConflict() {
+    const doc = await this.platform.cloudLoad().catch(() => null);
+    if (doc) this._applyCloudDoc(doc);
+    this._refreshCaches();
+    if (!this.platform.saveConflicted()) this._persistCloud(0);
   }
 
   /** Queue a cloud mirror of the save doc (debounced; no-op without a token). */
-  _persistCloud() {
+  _persistCloud(delayMs) {
     if (!this.platform || !this.platform.token) return;
     this.platform.scheduleCloudSave({
       v: SAVE_VERSION,
       savedAt: Date.now(),
-      progress: this.progress,
+      progress: { ...this.progress, achievements: this.platform.achievements() },
       boards: this.platform.loadJSON(STORAGE.boards, {}),
       profile: { name: this.profile.name },
-    });
+    }, delayMs);
   }
 
   /* ------------------------------------------------------------- modes */
@@ -293,7 +320,7 @@ class App {
       graphicsInfo: (words) => this.graphicsInfo(words),
       profileSave: (p) => this.profileSave(p),
       tutorialAck: () => this.tutorialAck(),
-      listLessons: () => TUTORIAL.map((l, i) => ({ id: l.id, index: i, title: `${i + 1}. ${l.title}` })),
+      listLessons: () => TUTORIAL.map((l, i) => ({ id: l.id, index: i, title: l.title })),
       listThemes: () => THEMES.map((t) => ({ id: t.id, name: t.name, locked: !this._themeUnlocked(t) })),
       setTheme: (id) => this.setTheme(id),
       loadStandings: () => this.platform.getGlobalBoard({ pageSize: 10 }),
@@ -351,7 +378,7 @@ class App {
       config,
       goals: [{ type: 'winMatch' }],
       par: config.maxHands,
-      objective: 'Win the table — practice match, unranked.',
+      objective: () => T('Win the table — practice match, unranked.'),
       hintsEnabled: options.hints !== false,
       allowUndo: !!options.undo,
       theme: this._currentTheme(),
@@ -367,11 +394,11 @@ class App {
       config: structuredClone(lesson.config),
       lesson, lessonIndex: idx, stepIndex: 0,
       goals: [], par: null,
-      objective: `${lesson.title} — ${lesson.goal}`,
+      objective: () => `${T(lesson.title)} — ${T(lesson.goal)}`,
       hintsEnabled: true, allowUndo: true,
       theme: this._currentTheme(),
     });
-    this.ui.announce(`${lesson.title}. ${lesson.body}`, false);
+    this.ui.announce(`${T(lesson.title)}. ${T(lesson.body)}`, false);
     this._announceStep();
   }
 
@@ -383,7 +410,7 @@ class App {
       mode: 'journey', stage,
       config: structuredClone(stage.config),
       goals: stage.goals, par: stage.par,
-      objective: `${stage.index}. ${stage.title} — ${stage.desc}`,
+      objective: () => `${stage.index}. ${T(stage.title)} — ${T(stage.desc)}`,
       hintsEnabled: true, allowUndo: false,
       theme,
     });
@@ -397,21 +424,21 @@ class App {
       mode: 'challenge', challenge: ch,
       config: structuredClone(ch.config),
       goals: ch.goals, par: ch.par, constraint: ch.constraint || null,
-      objective: `${ch.title} — ${ch.desc}`,
+      objective: () => `${T(ch.title)} — ${T(ch.desc)}`,
       hintsEnabled: false, allowUndo: false,
       theme,
     });
   }
 
   selectDaily() {
-    if (!this._daily) { this.ui.announce('Daily challenge is still loading.', true); return; }
+    if (!this._daily) { this.ui.announce(T('Daily challenge is still loading.'), true); return; }
     const d = this._daily;
     const theme = THEMES.find((t) => t.id === d.theme) || this._currentTheme();
     this._startLocalGame({
       mode: 'daily', daily: d,
       config: structuredClone(d.config),
       goals: d.goals, par: d.par,
-      objective: `Daily challenge for ${d.date} — everyone plays this exact deal today.`,
+      objective: () => T('Daily challenge for {date} — everyone plays this exact deal today.', { date: d.date }),
       hintsEnabled: false, allowUndo: false,
       theme,
     });
@@ -449,7 +476,7 @@ class App {
       this._constraintTimer = setInterval(() => {
         if (!this.game || this.finished) return;
         if (this.game.session.summary().elapsedMs > maxMs) {
-          this._finishLocal({ forceFail: 'Time expired — the clock beat you this run.' });
+          this._finishLocal({ forceFail: N('Time expired — the clock beat you this run.') });
         }
       }, 1000);
     }
@@ -475,10 +502,11 @@ class App {
       mode: this.game.mode,
       seatedYou: you,
       hintsEnabled: this.game.hintsEnabled,
-      hint: this._hint,
+      hint: this._hintText(),
       objective: this._objectiveText(snap),
       progress: this._progressText(snap, summary),
     };
+    this._lastHud = { snap, view: hudView };
     this.ui.updateGame(hudView);
     if (this.renderer && you) this.renderer.showSnapshot(snap, you.seat);
     if (snap.terminal) this._finishLocal({});
@@ -496,28 +524,47 @@ class App {
     if (!g) return '';
     if (g.mode === 'learn') {
       const step = g.lesson.steps[g.stepIndex];
-      return g.lesson.title + (step ? ' — ' + step.text : '');
+      return T(g.lesson.title) + (step ? ' — ' + T(step.text) : '');
     }
-    return g.objective || '';
+    return typeof g.objective === 'function' ? g.objective() : (g.objective || '');
+  }
+
+  /** The hint line in the current language (hints are kept as functions). */
+  _hintText() {
+    const h = this._hint;
+    return typeof h === 'function' ? h() : h;
+  }
+
+  /** Language changed: re-render the UI and the table view in place. */
+  _relabel() {
+    this.ui.relabel();
+    const last = this._lastHud;
+    if (this.game && !this.finished && last && this.ui.screen === 'game') {
+      const snap = this.game.session.snapshot() || last.snap;
+      this.ui.updateGame(Object.assign({}, last.view, {
+        snapshot: snap, hint: this._hintText(),
+        objective: this._objectiveText(snap), progress: this._progressText(snap, this.game.session.summary()),
+      }));
+    }
   }
 
   _progressText(snap, summary) {
     const g = this.game;
     if (!g) return '';
     const parts = [];
-    parts.push(`Hand ${snap.handNumber || 0}` + (snap.config.maxHands ? ` of ${snap.config.maxHands}` : ''));
+    parts.push(snap.config.maxHands ? T('Hand {n} of {total}', { n: snap.handNumber || 0, total: snap.config.maxHands }) : T('Hand {n}', { n: snap.handNumber || 0 }));
     const you = snap.players.find((p) => p.id === HUMAN_ID);
-    if (you) parts.push(`Your stack: ${you.chips}`);
+    if (you) parts.push(T('Your stack: {n}', { n: you.chips }));
     const st = (snap.stats || {})[HUMAN_ID];
-    if (st && st.handsWon) parts.push(`Hands won: ${st.handsWon}`);
+    if (st && st.handsWon) parts.push(T('Hands won: {n}', { n: st.handsWon }));
     if (g.mode === 'challenge' && g.constraint) {
       const c = g.constraint;
       if (c.type === 'moveLimit' || c.moveLimit) {
-        parts.push(`Actions left: ${Math.max(0, (c.moves || c.moveLimit) - this._movesUsed)}`);
+        parts.push(T('Actions left: {n}', { n: Math.max(0, (c.moves || c.moveLimit) - this._movesUsed) }));
       }
       if (c.type === 'speedTarget') {
         const left = Math.max(0, c.maxMs - summary.elapsedMs);
-        parts.push(`Time left: ${Math.floor(left / 60000)}:${String(Math.floor((left % 60000) / 1000)).padStart(2, '0')}`);
+        parts.push(T('Time left: {time}', { time: `${Math.floor(left / 60000)}:${String(Math.floor((left % 60000) / 1000)).padStart(2, '0')}` }));
       }
     }
     return parts.join(' · ');
@@ -541,7 +588,7 @@ class App {
     // Challenge constraints
     const c = g.constraint;
     if (c && (c.type === 'noFoldPreflop' || c.noFoldPreflop) && type === 'fold' && snap.phase === 'preflop') {
-      this.ui.announce('Folding before the flop is not allowed in this challenge.', true);
+      this.ui.announce(T('Folding before the flop is not allowed in this challenge.'), true);
       this.audio.play('error');
       return { ok: false, error: { code: 'CONSTRAINT', message: 'noFoldPreflop' } };
     }
@@ -551,7 +598,7 @@ class App {
         const legal = legalActions(snap, HUMAN_ID);
         const auto = legal.find((a) => a.type === 'check') || legal.find((a) => a.type === 'fold');
         if (!auto) return;
-        this.ui.announce('Action limit reached — the table plays the safest move for you.', true);
+        this.ui.announce(T('Action limit reached — the table plays the safest move for you.'), true);
         type = auto.type;
         amount = auto.amount;
       }
@@ -560,7 +607,7 @@ class App {
     if (g.mode === 'learn') this._learnOnAction(type);
     const res = g.session.dispatch(type, amount);
     if (!res.ok) {
-      this.ui.announce(`Cannot ${type}: ${res.error.message}`, true);
+      this.ui.announce(T('Cannot {action}: {reason}', { action: T(type), reason: res.error.message }), true);
       this.audio.play('error');
     } else {
       this._movesUsed++;
@@ -573,7 +620,7 @@ class App {
   undo() {
     if (!this.game || !this.game.session) return;
     const ok = this.game.session.undo();
-    this.ui.announce(ok ? 'Undone — back to your previous decision.' : 'Nothing to undo.', !ok);
+    this.ui.announce(ok ? T('Undone — back to your previous decision.') : T('Nothing to undo.'), !ok);
     if (ok) this.audio.play('click');
   }
 
@@ -586,7 +633,7 @@ class App {
     if (g.mode === 'learn') {
       const step = g.lesson.steps[g.stepIndex];
       if (step && typeof step.hint === 'function') {
-        try { text = step.hint(snap, legal); } catch { text = null; }
+        try { if (step.hint(snap, legal)) text = () => step.hint(snap, legal); } catch { text = null; }
       }
     }
     if (!text) {
@@ -595,18 +642,18 @@ class App {
         const pick = chooseAction(snap, HUMAN_ID, 'normal', rng);
         const call = legal.find((a) => a.type === 'call');
         const check = legal.find((a) => a.type === 'check');
-        if (pick && pick.type === 'call' && call) text = `Consider calling ${call.amount} to stay in the hand.`;
-        else if (pick && (pick.type === 'bet' || pick.type === 'raise')) text = 'Your hand has some strength — a bet could build the pot.';
-        else if (pick && pick.type === 'fold') text = 'This hand looks weak for the price — folding is reasonable.';
-        else if (check) text = 'No bet is live — checking costs nothing.';
+        if (pick && pick.type === 'call' && call) text = () => T('Consider calling {n} to stay in the hand.', { n: call.amount });
+        else if (pick && (pick.type === 'bet' || pick.type === 'raise')) text = () => T('Your hand has some strength — a bet could build the pot.');
+        else if (pick && pick.type === 'fold') text = () => T('This hand looks weak for the price — folding is reasonable.');
+        else if (check) text = () => T('No bet is live — checking costs nothing.');
       } catch { text = null; }
     }
-    this._hint = text || 'Watch the pot size and your position before acting.';
+    this._hint = text || (() => T('Watch the pot size and your position before acting.'));
     const you = snap.players.find((p) => p.id === HUMAN_ID) || null;
     this.ui.updateGame({
       snapshot: snap, legal, isYourTurn: legal.length > 0,
       canUndo: g.session.canUndo(), mode: g.mode, seatedYou: you,
-      hintsEnabled: g.hintsEnabled, hint: this._hint,
+      hintsEnabled: g.hintsEnabled, hint: this._hintText(),
       objective: this._objectiveText(snap), progress: this._progressText(snap, g.session.summary()),
     });
   }
@@ -625,10 +672,12 @@ class App {
     if (!g || g.mode !== 'learn') return;
     const step = g.lesson.steps[g.stepIndex];
     if (step) {
+      const snap = g.session.snapshot();
+      const legal = legalActions(snap, HUMAN_ID);
       this._hint = typeof step.hint === 'function'
-        ? (() => { try { return step.hint(g.session.snapshot(), legalActions(g.session.snapshot(), HUMAN_ID)); } catch { return null; } })()
+        ? () => { try { return step.hint(snap, legal); } catch { return null; } }
         : null;
-      this.ui.announce(step.text, false);
+      this.ui.announce(T(step.text), false);
       this.platform.telemetry('tutorial_step', { step: g.stepIndex });
     }
   }
@@ -643,7 +692,7 @@ class App {
       this._saveProgress();
       this.platform.telemetry('tutorial_step', { step: 99 });
       // Let the current hand finish naturally; mark lesson complete.
-      this.ui.announce(`${g.lesson.title} complete. Finish the hand or leave when ready.`, false);
+      this.ui.announce(T('{title} complete. Finish the hand or leave when ready.', { title: T(g.lesson.title) }), false);
       this.audio.play('win');
       g.lessonComplete = true;
     } else {
@@ -720,13 +769,13 @@ class App {
         if (g.stage.id === 'j40') unlock('estuary_champion');
       }
       headline = passed
-        ? (stars >= 3 ? 'Flawless waters — stage mastered!' : 'Stage complete!')
-        : (forceFail || 'The river takes this one — stage goals unmet.');
+        ? (stars >= 3 ? N('Flawless waters — stage mastered!') : N('Stage complete!'))
+        : (forceFail || N('The river takes this one — stage goals unmet.'));
       progress = {
         stars,
         goalsPassed: goalsEval ? goalsEval.results.filter((r) => r.ok).length : 0,
         goalsTotal: g.goals.length,
-        text: goalsEval ? goalsEval.results.map((r) => (r.ok ? '✓ ' : '✗ ') + r.detail).join('  ') : '',
+        text: goalsLine(goalsEval),
       };
       const nextIdx = g.stage.index; // index is 1-based; next stage = same index in array
       canNext = passed && nextIdx < JOURNEY.length;
@@ -740,32 +789,36 @@ class App {
         seed: g.daily.seed, assists: [], durationMs: summary.elapsedMs,
       });
       this._persistCloud();
-      headline = passed ? 'Daily challenge complete!' : (forceFail || 'Daily challenge finished — goals unmet.');
+      headline = passed ? N('Daily challenge complete!') : (forceFail || N('Daily challenge finished — goals unmet.'));
+      const date = g.daily.date;
       progress = {
         goalsPassed: goalsEval ? goalsEval.results.filter((r) => r.ok).length : 0,
         goalsTotal: g.goals.length,
-        text: `Result recorded for ${g.daily.date}: ${value} chips.`,
+        text: () => T('Result recorded for {date}: {n} chips.', { date, n: value }),
       };
     } else if (g.mode === 'challenge') {
       if (passed) {
         this.progress.challenges = Object.assign({}, this.progress.challenges, { [g.challenge.id]: true });
       }
-      headline = passed ? 'Challenge cleared!' : (forceFail || 'Challenge failed — try a different line.');
+      headline = passed ? N('Challenge cleared!') : (forceFail || N('Challenge failed — try a different line.'));
       progress = {
         goalsPassed: goalsEval ? goalsEval.results.filter((r) => r.ok).length : 0,
         goalsTotal: g.goals.length,
-        text: goalsEval ? goalsEval.results.map((r) => (r.ok ? '✓ ' : '✗ ') + r.detail).join('  ') : '',
+        text: goalsLine(goalsEval),
       };
     } else if (g.mode === 'learn') {
-      headline = g.lessonComplete ? `Lesson complete: ${g.lesson.title}` : 'Lesson ended.';
+      const lessonTitle = g.lesson.title;
+      headline = g.lessonComplete ? () => T('Lesson complete: {title}', { title: T(lessonTitle) }) : N('Lesson ended.');
       const nextIdx = g.lessonIndex + 1;
       canNext = g.lessonComplete && nextIdx < TUTORIAL.length;
       this._nextUp = canNext ? { lesson: TUTORIAL[nextIdx], index: nextIdx } : null;
-      progress = { text: g.lessonComplete ? 'All steps performed. Well played.' : 'You left before finishing every step.' };
+      progress = { text: g.lessonComplete ? () => T('All steps performed. Well played.') : () => T('You left before finishing every step.') };
     } else {
-      headline = standing && standing.place === 1 ? 'You win the table!' : 'Match over.';
-      progress = { text: 'Practice is unranked — play with the assists you like.' };
+      headline = standing && standing.place === 1 ? N('You win the table!') : N('Match over.');
+      progress = { text: () => T('Practice is unranked — play with the assists you like.') };
     }
+    const headlineKey = headline;
+    headline = typeof headlineKey === 'function' ? headlineKey : () => T(headlineKey);
 
     if (lt.hands >= 1000) unlock('thousand_hands');
     this._saveProgress();
@@ -779,27 +832,34 @@ class App {
     this._refreshCaches();
     if (this.game !== g || !this.finished) return;
 
+    const MODE_NAMES = { learn: N('Learn'), journey: N('Journey'), daily: N('Daily'), practice: N('Practice'), challenge: N('Challenge') };
+    const place = standing ? { place: standing.place, total: terminal.standings.length } : null;
     const breakdown = [
-      { label: 'Mode', value: g.mode },
-      { label: 'Hands played', value: summary.handsPlayed },
-      { label: 'Hands won', value: stats.handsWon || 0 },
-      { label: 'Showdowns won', value: stats.showdownsWon || 0 },
-      { label: 'Final chips', value: standing ? standing.chips : '—' },
-      { label: 'Place', value: standing ? `#${standing.place} of ${terminal.standings.length}` : '—' },
-      { label: 'Invalid actions', value: summary.invalidActions },
-      { label: 'Time', value: `${Math.floor(summary.elapsedMs / 60000)}:${String(Math.floor((summary.elapsedMs % 60000) / 1000)).padStart(2, '0')}` },
+      { label: () => T('Mode'), value: () => T(MODE_NAMES[g.mode] || g.mode) },
+      { label: () => T('Hands played'), value: summary.handsPlayed },
+      { label: () => T('Hands won'), value: stats.handsWon || 0 },
+      { label: () => T('Showdowns won'), value: stats.showdownsWon || 0 },
+      { label: () => T('Final chips'), value: standing ? standing.chips : '—' },
+      { label: () => T('Place'), value: place ? () => T('#{place} of {total}', place) : '—' },
+      { label: () => T('Invalid actions'), value: summary.invalidActions },
+      { label: () => T('Time'), value: `${Math.floor(summary.elapsedMs / 60000)}:${String(Math.floor((summary.elapsedMs % 60000) / 1000)).padStart(2, '0')}` },
     ];
-    const comparison = g.par != null
-      ? `Par for this table is ${g.par} hands — you played ${summary.handsPlayed}.`
+    const par = g.par, played = summary.handsPlayed;
+    const comparison = par != null
+      ? () => T('Par for this table is {par} hands — you played {n}.', { par, n: played })
       : null;
-    const recommendation = g.mode === 'journey'
-      ? (passed ? (canNext ? `Continue to stage ${g.stage.index + 1}: ${JOURNEY[g.stage.index].title}.` : 'Journey complete — try the daily challenge!')
-        : 'Retry the stage — hints are on, and the deal is identical every attempt.')
+    const nextStage = g.mode === 'journey' && canNext ? { n: g.stage.index + 1, title: JOURNEY[g.stage.index].title } : null;
+    const recKey = g.mode === 'journey'
+      ? (passed ? (canNext ? null : N('Journey complete — try the daily challenge!'))
+        : N('Retry the stage — hints are on, and the deal is identical every attempt.'))
       : g.mode === 'learn'
-        ? (canNext ? 'Next lesson introduces the next rule.' : 'All lessons done — the Journey awaits.')
+        ? (canNext ? N('Next lesson introduces the next rule.') : N('All lessons done — the Journey awaits.'))
         : g.mode === 'daily'
-          ? 'Come back tomorrow for a fresh deal, or warm up in Practice.'
-          : 'Try a Journey stage or a Challenge for a sterner test.';
+          ? N('Come back tomorrow for a fresh deal, or warm up in Practice.')
+          : N('Try a Journey stage or a Challenge for a sterner test.');
+    const recommendation = nextStage
+      ? () => T('Continue to stage {n}: {title}.', { n: nextStage.n, title: T(nextStage.title) })
+      : () => T(recKey);
 
     // Signed in: ranked tables (Daily, Challenge) post their final chips to the platform board.
     const postLb = (g.mode === 'daily' || g.mode === 'challenge') && !!this.platform.token;
@@ -817,7 +877,7 @@ class App {
         if (this.game === g && this.ui.screen === 'results') this.ui.setResultsLeaderboard(r);
       });
     }
-    this.ui.announce(headline, true);
+    this.ui.announce(headline(), true);
   }
 
   _updateDailyStreak(today, unlock) {
@@ -908,14 +968,14 @@ class App {
     const t = THEMES.find((x) => x.id === id);
     if (!t) return;
     if (!this._themeUnlocked(t)) {
-      this.ui.announce(`${t.name} is locked — keep playing to unlock it.`, true);
+      this.ui.announce(T('{name} is locked — keep playing to unlock it.', { name: T(t.name) }), true);
       return;
     }
     this.settings.graphics.theme = id;
     this.platform.saveSettings(this.settings);
     this._applyTheme(t);
     this.audio.startAmbience(id);
-    this.ui.announce(`Theme: ${t.name}.`, false);
+    this.ui.announce(T('Theme: {name}.', { name: T(t.name) }), false);
   }
 
   async invite() {
@@ -932,7 +992,7 @@ class App {
   profileSave(p) {
     // On-platform the table name comes from the StarHermit account nickname.
     if (this.platform.token) {
-      this.ui.announce('Your table name comes from your StarHermit account.', false);
+      this.ui.announce(T('Your table name comes from your StarHermit account.'), false);
       return;
     }
     if (p && p.name) {
@@ -940,7 +1000,7 @@ class App {
       this.platform.saveProfile({ name: this.profile.name });
       this._persistCloud();
       this._refreshCaches();
-      this.ui.announce('Profile saved.', false);
+      this.ui.announce(T('Profile saved.'), false);
       this.audio.play('notify');
     }
   }
@@ -958,7 +1018,7 @@ async function boot() {
     const msg = document.createElement('div');
     msg.setAttribute('role', 'alert');
     msg.style.cssText = 'padding:2rem;font-family:system-ui;color:#fff;background:#33110f;';
-    msg.textContent = 'River Stakes failed to start: ' + ((err && err.message) || err);
+    msg.textContent = T('River Stakes failed to start: {reason}', { reason: (err && err.message) || err });
     el.append(msg);
     throw err;
   }

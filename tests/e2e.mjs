@@ -29,9 +29,11 @@ import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { stubStarHermit, launchToken } from './starhermit-e2e.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const SHOT = (stage, vp) => `/tmp/river-stakes-e2e-${stage}-${vp}.png`;
+// Screenshots go to $E2E_SHOT_DIR (default /tmp).
+const SHOT = (stage, vp) => path.join(process.env.E2E_SHOT_DIR || '/tmp', `river-stakes-e2e-${stage}-${vp}.png`);
 
 // benign GPU/swiftshader noise (mirrors the sibling suites)
 const browserNoise = /GL Driver Message|GPU stall due to ReadPixels|Automatic fallback to software WebGL|EnableWebGLDeveloperExtensions/i;
@@ -338,6 +340,97 @@ async function runPass(browser, name, ctxOpts, { full }) {
   console.log(`ok - ${name}: no page errors`);
 }
 
+// ---------- language pass (signed in via a stubbed StarHermit API) ----------
+// Automatic follows the account's preferred language (fr-CA); choosing
+// Italian in Settings opened from the pause menu re-renders the open modals in
+// place and the table behind them without ending the match; ui.language is
+// saved and Report a problem posts a bug report.
+async function runLanguage(browser, name, ctxOpts) {
+  const errors = [];
+  const context = await browser.newContext(ctxOpts);
+  const page = await context.newPage();
+  page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
+  page.on('console', (m) => {
+    if ((m.type() !== 'error' && m.type() !== 'warning') || browserNoise.test(m.text())) return;
+    errors.push(`console ${m.type()}: ${m.text()}`);
+  });
+  const text = async (sel) => (await page.locator(sel).first().textContent()).trim();
+  try {
+    const calls = await stubStarHermit(page, { preferredLanguage: 'fr-CA' });
+    await page.goto('about:blank');
+    await page.goto(BASE + '/index.html#game_token=' + launchToken(), { waitUntil: 'load' });
+    await page.waitForFunction(() => document.documentElement.lang === 'fr-CA');
+    await page.getByRole('button', { name: 'Jouer', exact: true }).waitFor({ timeout: 15000 });
+    ok(`${name}: Automatic resolves to the account language (fr-CA); title in French`);
+
+    // Practice table in French, then pause → Settings.
+    await page.getByRole('button', { name: 'Jouer', exact: true }).click();
+    await page.locator('.mode-card', { hasText: 'Entraînement' }).getByRole('button').click();
+    await page.waitForSelector('.screen-setup', { timeout: 8000 });
+    await page.selectOption('#setup-seats', '2');
+    await page.getByRole('button', { name: 'Prenez place', exact: true }).click();
+    await page.waitForSelector('.hud-wrap', { timeout: 8000 });
+    await page.waitForFunction(() => !!window.__riverStakes?.game?.session, null, { timeout: 8000 });
+    if (!/Gagnez la table/.test(await text('.objective-text'))) throw new Error('objective not in French');
+    await page.locator('.hud-pause').click();
+    await page.waitForSelector('.modal .pause-menu', { timeout: 8000 });
+    await page.locator('.modal .pause-menu').getByRole('button', { name: 'Paramètres', exact: true }).click();
+    const choice = page.locator('[data-game-language="choice"]');
+    await choice.waitFor({ state: 'attached', timeout: 8000 });
+    await choice.scrollIntoViewIfNeeded();
+    const auto = await choice.locator('option').first().textContent();
+    if (auto !== 'Automatique — Français (Canada)') throw new Error('Automatic label not resolved: ' + auto);
+    if (await choice.count() !== 1) throw new Error('expected exactly one language selector');
+    await choice.selectOption('it-IT');
+    await page.waitForFunction(() => document.documentElement.lang === 'it-IT');
+    await page.waitForFunction(() => /Salvato/.test(document.querySelector('[data-game-language="status"]').textContent));
+    if (calls.settings['ui.language']?.choice !== 'it-IT') throw new Error('ui.language not saved: ' + JSON.stringify(calls.settings));
+    const titles = await page.locator('.modal-title').allTextContents();
+    if (!titles.includes('In pausa') || !titles.includes('Impostazioni')) throw new Error('modal titles not re-rendered: ' + titles.join(' | '));
+    if (!(await choice.evaluate((el) => el.isConnected))) throw new Error('language selector was rebuilt');
+    await page.locator('.modal').last().getByLabel('Movimento ridotto', { exact: true }).waitFor({ state: 'attached' });
+    await page.locator('[data-game-report="title"]').scrollIntoViewIfNeeded();
+    await page.fill('[data-game-report="title"]', 'Test report');
+    await page.click('[data-game-report="send"]');
+    await page.waitForFunction(() => /Grazie/.test(document.querySelector('[data-game-report="status"]').textContent));
+    if (!calls.reports?.[0] || calls.reports[0].kind !== 'bug') throw new Error('report not posted');
+    await choice.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: SHOT('language', name) });
+    const vw = page.viewportSize().width;
+    for (const sel of ['[data-game-language="choice"]', '[data-game-report="send"]', '#gfx-preset']) {
+      const b = await page.locator(sel).last().boundingBox();
+      if (b && (b.x < 0 || b.x + b.width > vw + 1)) throw new Error(`${sel} cut off: ${JSON.stringify(b)}`);
+    }
+    ok(`${name}: Italian chosen mid-match — open modals relabelled in place, ui.language saved, report sent`);
+
+    // Close Settings, resume the same match: Italian HUD.
+    await page.locator('.modal').last().getByRole('button', { name: '✕ Chiudi', exact: true }).click();
+    await page.locator('.modal .pause-menu').getByRole('button', { name: 'Riprendi', exact: true }).click();
+    await page.waitForFunction(() => !document.querySelector('.modal'), null, { timeout: 8000 });
+    if (!(await page.evaluate(() => !!window.__riverStakes?.game?.session))) throw new Error('match did not survive the language change');
+    if (!/Vinci il tavolo/.test(await text('.objective-text'))) throw new Error('objective not re-rendered: ' + await text('.objective-text'));
+    if ((await text('.rail-left h2')) !== 'Obiettivo') throw new Error('HUD not re-rendered');
+    await page.screenshot({ path: SHOT('language-hud', name) });
+    ok(`${name}: same match continues with an Italian HUD`);
+
+    // Back to Automatic (fr-CA).
+    await page.locator('.hud-pause').click();
+    await page.locator('.modal .pause-menu').getByRole('button', { name: 'Impostazioni', exact: true }).click();
+    await choice.waitFor({ state: 'attached', timeout: 8000 });
+    await choice.scrollIntoViewIfNeeded();
+    await choice.selectOption('auto');
+    await page.waitForFunction(() => document.documentElement.lang === 'fr-CA');
+    if (calls.settings['ui.language']?.choice !== 'auto') throw new Error('ui.language auto not saved');
+    const back = await page.locator('.modal-title').allTextContents();
+    if (!back.includes('En pause')) throw new Error('modal titles not back in French: ' + back.join(' | '));
+    ok(`${name}: back to Automatic (fr-CA)`);
+  } finally {
+    await context.close();
+  }
+  if (errors.length) throw new Error(`${name} language pass had console output:\n  ${errors.join('\n  ')}`);
+  console.log(`ok - ${name}: language pass, no console errors or warnings`);
+}
+
 // ---------- main ----------
 let browser = null;
 try {
@@ -349,6 +442,8 @@ try {
   await runPass(browser, 'desktop', { viewport: { width: 1280, height: 800 } }, { full: true });
   await runPass(browser, 'mobile',
     { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true }, { full: false });
+  await runLanguage(browser, 'lang-desktop', { viewport: { width: 1280, height: 800 } });
+  await runLanguage(browser, 'lang-mobile', { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
   if (ownServerCalls.length) throw new Error('standalone made own-server requests: ' + ownServerCalls.join(', '));
   console.log('ok - standalone load made zero same-origin /api or /ws requests');
   console.log('\nE2E PASS — river-stakes, desktop + mobile, no page errors');

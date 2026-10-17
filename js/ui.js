@@ -4,10 +4,13 @@ import { CATEGORIES, PRESETS, choosePreset, defaultGraphics, presetTier, resolve
 import { gfxStrings } from './gfx-strings.js';
 import { shText } from './sh-i18n.js';
 import { DEFAULT_BINDINGS, keyLabel } from './platform.js';
+import { T, N } from './lang.js';
 
 /**
- * All user-facing text lives here, grouped by screen/purpose, so the game can
- * be localized later by swapping this object (pass opts.strings to UI).
+ * All user-facing text lives here, grouped by screen/purpose. The English
+ * leaves are translation keys: localizedStrings() renders every leaf in the
+ * game language (js/strings.js tables via js/lang.js), and UI.relabel()
+ * re-renders the visible screen when the language changes.
  * Template placeholders use {name} syntax and are filled by fmt().
  */
 export const STRINGS = {
@@ -296,21 +299,48 @@ export const STRINGS = {
   },
 };
 
+// Leaves that stay as they are (the game name, card codes, suit symbols).
+const KEEP = new Set(['app.title', 'title.heading', 'help.handExamples', 'cards.suitSymbols']);
+function walkStrings(node, path, leaf) {
+  if (typeof node === 'string') return KEEP.has(path) ? node : leaf(node);
+  if (Array.isArray(node)) return KEEP.has(path) ? structuredClone(node) : node.map((x) => walkStrings(x, path, leaf));
+  if (node && typeof node === 'object') {
+    const out = {};
+    for (const [k, v] of Object.entries(node)) out[k] = walkStrings(v, path ? path + '.' + k : k, leaf);
+    return out;
+  }
+  return node;
+}
+/** STRINGS with every text leaf in the current game language. */
+export function localizedStrings() { return walkStrings(STRINGS, '', (x) => T(x)); }
+/** English source of every translated STRINGS leaf (i18n coverage tests). */
+export function stringKeys() {
+  const keys = new Set();
+  walkStrings(STRINGS, '', (x) => { keys.add(x); return x; });
+  return [...keys];
+}
+
+/** Display names for engine phases and actions (translated at render time). */
+const PHASE_NAMES = { init: N('Ready'), preflop: N('Preflop'), flop: N('Flop'), turn: N('Turn'), river: N('River'), showdown: N('Showdown'), handEnd: N('Hand over'), terminal: N('Match over') };
+const ACTION_NAMES = { fold: N('fold'), check: N('check'), call: N('call'), bet: N('bet'), raise: N('raise'), allin: N('all in'), advance: N('deal') };
+const phaseName = (p) => (PHASE_NAMES[p] ? T(PHASE_NAMES[p]) : String(p || ''));
+const actionName = (a) => (ACTION_NAMES[a] ? T(ACTION_NAMES[a]) : String(a || ''));
+
 /**
  * Keyboard actions shown in help and the shortcut bar. Keys come from the
  * effective bindings (platform controls API; defaults in platform.js).
  */
 const KEY_ACTIONS = [
-  { action: 'fold',   desc: 'Fold' },
-  { action: 'call',   desc: 'Check / call (whichever is legal)' },
-  { action: 'raise',  desc: 'Bet / raise' },
-  { action: 'allin',  desc: 'All in' },
-  { label: 'Enter',   desc: 'Confirm the focused button' },
-  { action: 'pause',  desc: 'Pause / close panel' },
-  { action: 'undo',   desc: 'Undo (when allowed)' },
-  { action: 'hint',   desc: 'Hint' },
-  { action: ['prev', 'next'], desc: 'Move between action buttons' },
-  { action: 'skip',   desc: 'Skip ahead to your next decision' },
+  { action: 'fold',   desc: N('Fold') },
+  { action: 'call',   desc: N('Check / call (whichever is legal)') },
+  { action: 'raise',  desc: N('Bet / raise') },
+  { action: 'allin',  desc: N('All in') },
+  { label: N('Enter'), desc: N('Confirm the focused button') },
+  { action: 'pause',  desc: N('Pause / close panel') },
+  { action: 'undo',   desc: N('Undo (when allowed)') },
+  { action: 'hint',   desc: N('Hint') },
+  { action: ['prev', 'next'], desc: N('Move between action buttons') },
+  { action: 'skip',   desc: N('Skip ahead to your next decision') },
 ];
 
 /** Static per-mode metadata for the mode-select screen. */
@@ -330,23 +360,40 @@ function fmt(tpl, vars) {
   return String(tpl).replace(/\{(\w+)\}/g, (m, k) => (vars[k] != null ? String(vars[k]) : m));
 }
 
-/** Tiny element builder: el('button', {class:'x', onclick:fn}, 'Label') */
+// Texts given as functions are re-rendered in place by relabelBound() when
+// the language changes (open settings, pause menu, modal chrome), so those
+// controls keep their identity and focus.
+let BOUND = [];
+function bindText(node, fn, attr) {
+  const apply = () => { const v = String(fn() ?? ''); if (attr) node.setAttribute(attr, v); else node.textContent = v; };
+  apply();
+  BOUND.push({ node, apply });
+  if (BOUND.length > 4000) BOUND = BOUND.filter((b) => b.node.isConnected);
+}
+function relabelBound() {
+  BOUND = BOUND.filter((b) => b.node.isConnected);
+  for (const b of BOUND) b.apply();
+}
+
+/** Tiny element builder: el('button', {class:'x', onclick:fn}, 'Label'); text may be a function. */
 function el(tag, attrs, ...children) {
   const node = document.createElement(tag);
   if (attrs) {
     for (const [k, v] of Object.entries(attrs)) {
       if (v == null || v === false) continue;
       if (k === 'class') node.className = v;
-      else if (k === 'text') node.textContent = v;
+      else if (k === 'text') { if (typeof v === 'function') bindText(node, v); else node.textContent = v; }
       else if (k === 'html') node.innerHTML = v;
       else if (k.startsWith('on') && typeof v === 'function') node.addEventListener(k.slice(2), v);
       else if (k === 'dataset') Object.assign(node.dataset, v);
-      else if (k === 'aria') for (const [ak, av] of Object.entries(v)) node.setAttribute('aria-' + ak, av);
+      else if (k === 'aria') for (const [ak, av] of Object.entries(v)) { if (typeof av === 'function') bindText(node, av, 'aria-' + ak); else node.setAttribute('aria-' + ak, av); }
+      else if (typeof v === 'function') bindText(node, v, k);
       else node.setAttribute(k, v === true ? '' : String(v));
     }
   }
   for (const c of children.flat(9)) {
     if (c == null || c === false) continue;
+    if (typeof c === 'function') { const t = document.createTextNode(''); bindText(t, c); node.append(t); continue; }
     node.append(c.nodeType ? c : document.createTextNode(String(c)));
   }
   return node;
@@ -388,7 +435,9 @@ export class UI {
   constructor(root, controller, opts = {}) {
     this.root = root;
     this.c = controller || {};
-    this.s = mergeDeep(structuredClone(STRINGS), opts.strings || {});
+    this._stringOverrides = opts.strings || {};
+    this.s = mergeDeep(localizedStrings(), this._stringOverrides);
+    this._gfxPanels = [];         // [{ wrap, render }] Graphics control boxes (redrawn on language change)
     this.screen = null;
     this.cache = {};              // last data per screen, for re-entry
     this.settings = defaultSettings();
@@ -427,10 +476,33 @@ export class UI {
   _keyRows() {
     const b = this.bindings || DEFAULT_BINDINGS;
     return KEY_ACTIONS.map((k) => {
-      if (k.label) return { label: k.label, desc: k.desc };
+      if (k.label) return { label: T(k.label), desc: T(k.desc) };
       const codes = [].concat(k.action).flatMap((a) => b[a] || []);
-      return { label: codes.map(keyLabel).join(' / '), desc: k.desc };
+      return { label: codes.map(keyLabel).join(' / '), desc: T(k.desc) };
     }).filter((r) => r.label);
+  }
+
+  /**
+   * The game language changed: re-render every visible text in place —
+   * texts bound to functions (settings, pause menu, modal chrome) and the
+   * Graphics controls update without rebuilding; other screens rebuild from
+   * their cached data; a table in progress keeps running.
+   */
+  relabel() {
+    this.s = mergeDeep(localizedStrings(), this._stringOverrides);
+    relabelBound();
+    this._gfxPanels = this._gfxPanels.filter((p) => p.wrap.isConnected);
+    for (const p of this._gfxPanels) p.render(null);
+    this._quiet = true;
+    try {
+      if (this.screen === 'game') {
+        if (this._lastView) { this.g = null; this.showScreen('game'); this.updateGame(this._lastView); this._renderFeed(); }
+      } else if (this.screen === 'results') {
+        if (this._lastResults) this.showResults(this._lastResults);
+      } else if (this.screen && this.screen !== 'settings') {
+        this.showScreen(this.screen);
+      }
+    } finally { this._quiet = false; }
   }
 
   /** Localized StarHermit chrome string. */
@@ -478,6 +550,7 @@ export class UI {
       el('h1', { text: this.s.app.title }), el('p', { text: this.s.common.loading }));
     node.classList.add('screen', 'screen-' + name);
     this.root.append(node);
+    if (this._quiet) return; // language re-render: keep focus (e.g. in an open modal) where it is
     this.announce(fmt(this.s.a11y.screenChanged, { screen: name }));
     const focusTarget = node.querySelector('[data-autofocus]') || node.querySelector('h1[tabindex]') || node.querySelector('h1');
     if (focusTarget) {
@@ -489,7 +562,7 @@ export class UI {
   _backBar(label, target) {
     return el('div', { class: 'screen-bar' },
       el('button', { class: 'btn btn-ghost', type: 'button', onclick: () => this.showScreen(target) },
-        '\u2039 ' + (label || this.s.common.back)));
+        typeof label === 'function' ? () => '\u2039 ' + label() : '\u2039 ' + (label || this.s.common.back)));
   }
 
   _screen_title() {
@@ -562,7 +635,7 @@ export class UI {
               el('button', {
                 class: 'btn btn-wide', type: 'button', 'data-autofocus': i === 0 ? '' : null,
                 onclick: () => this._call('play', 'learn', { lesson: l.id != null ? l.id : i }),
-              }, l.title || ('Lesson ' + (i + 1))))))
+              }, `${(l.index != null ? l.index : i) + 1}. ` + (l.title ? T(l.title) : T('Lesson {n}', { n: i + 1 }))))))
           : el('button', {
               class: 'btn btn-primary', type: 'button', 'data-autofocus': '',
               onclick: commit,
@@ -633,7 +706,7 @@ export class UI {
       el('ol', { class: 'standings-list' }, entries.map((e) =>
         el('li', {},
           el('span', { class: 'standings-rank', text: e.rank != null ? e.rank + '. ' : '' }),
-          el('span', { class: 'standings-name', text: e.name || 'Player' }),
+          el('span', { class: 'standings-name', text: e.name || T('Player') }),
           el('span', { class: 'standings-value', text: String(e.value) })))));
     panel.hidden = false;
   }
@@ -657,11 +730,11 @@ export class UI {
       const node = el('button', {
         class: 'journey-node is-' + state + (st.mastery ? ' is-mastery' : ''),
         type: 'button', role: 'listitem', disabled: state === 'locked',
-        aria: { label: `${st.title || st.id} — ${s.common[state]}, ${fmt(s.journey.starsLabel, { n: stars })}` },
+        aria: { label: `${st.title ? T(st.title) : st.id} — ${s.common[state]}, ${fmt(s.journey.starsLabel, { n: stars })}` },
         onclick: () => { if (state !== 'locked') this._call('selectJourney', st.id); },
       },
         el('span', { class: 'journey-idx', text: String(st.index != null ? st.index : i + 1) }),
-        el('span', { class: 'journey-name', text: st.title || st.id }),
+        el('span', { class: 'journey-name', text: st.title ? T(st.title) : st.id }),
         el('span', { class: 'journey-stars', 'aria-hidden': 'true', text: starStr }),
         st.mastery ? el('span', { class: 'badge badge-mastery', text: s.common.mastery }) : null,
         state === 'locked' ? el('span', { class: 'journey-lock', text: '\u26BF ' + s.common.locked }) : null);
@@ -683,8 +756,8 @@ export class UI {
     if (!list.length) wrap.append(el('p', { class: 'muted', text: s.common.loading }));
     for (const ch of list) {
       wrap.append(el('article', { class: 'list-card', role: 'listitem' },
-        el('h3', { text: ch.title || ch.id }),
-        el('p', { text: ch.desc || '' }),
+        el('h3', { text: ch.title ? T(ch.title) : ch.id }),
+        el('p', { text: ch.desc ? T(ch.desc) : '' }),
         ch.constraint ? el('p', { class: 'badge', text: fmt(s.challenges.constraint, { text: constraintText(ch.constraint) }) }) : null,
         ch.par != null ? el('p', { class: 'muted', text: fmt(s.challenges.par, { n: ch.par }) }) : null,
         done[ch.id] ? el('p', { class: 'badge badge-ok', text: '\u2713 ' + s.challenges.completedBadge }) : null,
@@ -710,8 +783,8 @@ export class UI {
     for (const a of list) {
       const ts = unlocked[a.key];
       wrap.append(el('article', { class: 'list-card' + (ts ? ' is-unlocked' : ''), role: 'listitem' },
-        el('h3', { text: (ts ? '\u2605 ' : '\u2606 ') + (a.name || a.key) }),
-        el('p', { text: a.desc || '' }),
+        el('h3', { text: (ts ? '\u2605 ' : '\u2606 ') + (a.name ? T(a.name) : a.key) }),
+        el('p', { text: a.desc ? T(a.desc) : '' }),
         el('p', { class: 'muted', text: ts ? fmt(s.achievements.unlockedOn, { date: new Date(ts).toLocaleDateString() }) : s.achievements.lockedYet })));
     }
     return el('section', {},
@@ -799,14 +872,17 @@ export class UI {
 
   _screen_settings() {
     return el('section', {},
-      this._backBar(this.s.common.back, 'title'),
-      el('h1', { text: this.s.settings.heading, 'data-autofocus': '' }),
+      this._backBar(() => this.s.common.back, 'title'),
+      el('h1', { text: () => this.s.settings.heading, 'data-autofocus': '' }),
       this._buildSettingsPanel());
   }
 
-  /** Settings controls; every change saves live via controller.saveSettings(patch). */
+  /**
+   * Settings controls; every change saves live via controller.saveSettings(patch).
+   * Labels are bound functions so a language change relabels them in place.
+   */
   _buildSettingsPanel() {
-    const s = this.s;
+    const S = () => this.s.settings;
     const st = this.settings;
     const save = (patch) => {
       mergeDeep(st, patch);
@@ -824,50 +900,50 @@ export class UI {
     };
     return el('div', { class: 'settings-panels' },
       el('section', { class: 'panel' },
-        el('h2', { text: s.settings.audio }),
-        slider(s.settings.master, st.audio.master, v => save({ audio: { master: v } }), 'set-master'),
-        slider(s.settings.music, st.audio.music, v => save({ audio: { music: v } }), 'set-music'),
-        slider(s.settings.effects, st.audio.effects, v => save({ audio: { effects: v } }), 'set-effects'),
-        slider(s.settings.ambience, st.audio.ambience, v => save({ audio: { ambience: v } }), 'set-ambience'),
-        slider(s.settings.voice, st.audio.voice, v => save({ audio: { voice: v } }), 'set-voice'),
-        checkboxEl('set-muted', s.settings.muted, st.audio.muted, v => save({ audio: { muted: v } }))),
+        el('h2', { text: () => S().audio }),
+        slider(() => S().master, st.audio.master, v => save({ audio: { master: v } }), 'set-master'),
+        slider(() => S().music, st.audio.music, v => save({ audio: { music: v } }), 'set-music'),
+        slider(() => S().effects, st.audio.effects, v => save({ audio: { effects: v } }), 'set-effects'),
+        slider(() => S().ambience, st.audio.ambience, v => save({ audio: { ambience: v } }), 'set-ambience'),
+        slider(() => S().voice, st.audio.voice, v => save({ audio: { voice: v } }), 'set-voice'),
+        checkboxEl('set-muted', () => S().muted, st.audio.muted, v => save({ audio: { muted: v } }))),
       el('section', { class: 'panel gfx-panel', id: 'gfx-settings', 'data-gfx-section': '' },
-        el('h2', { text: gfxStrings().heading }),
+        el('h2', { text: () => gfxStrings().heading }),
         this._buildGraphicsControls(save),
         (() => {
           const themes = this._call('listThemes') || [];
           if (!themes.length) return null;
-          return el('label', { class: 'field' }, el('span', { text: s.settings.themeLabel || 'Theme' }),
-            selectEl('set-theme', themes.map(t => [t.id, t.name + (t.locked ? ' 🔒' : '')]),
+          return el('label', { class: 'field' }, el('span', { text: () => S().themeLabel || T('Theme') }),
+            selectEl('set-theme', themes.map(t => [t.id, () => T(t.name) + (t.locked ? ' 🔒' : '')]),
               v => this._call('setTheme', v), this._themeId || themes[0].id));
         })()),
       el('section', { class: 'panel' },
-        el('h2', { text: s.settings.accessibility }),
-        checkboxEl('set-motion', s.settings.reducedMotion, st.accessibility.reducedMotion,
+        el('h2', { text: () => S().accessibility }),
+        checkboxEl('set-motion', () => S().reducedMotion, st.accessibility.reducedMotion,
           v => save({ accessibility: { reducedMotion: v } })),
-        checkboxEl('set-contrast', s.settings.highContrast, st.accessibility.highContrast,
+        checkboxEl('set-contrast', () => S().highContrast, st.accessibility.highContrast,
           v => save({ accessibility: { highContrast: v } })),
-        el('label', { class: 'field' }, el('span', { text: s.settings.palette }),
+        el('label', { class: 'field' }, el('span', { text: () => S().palette }),
           selectEl('set-palette',
-            [['default', s.settings.paletteDefault], ['deuteranopia', s.settings.paletteDeuteranopia], ['tritanopia', s.settings.paletteTritanopia]],
+            [['default', () => S().paletteDefault], ['deuteranopia', () => S().paletteDeuteranopia], ['tritanopia', () => S().paletteTritanopia]],
             v => save({ accessibility: { palette: v } }), st.accessibility.palette)),
-        el('label', { class: 'field' }, el('span', { text: s.settings.textSize }),
+        el('label', { class: 'field' }, el('span', { text: () => S().textSize }),
           selectEl('set-textsize',
-            [['normal', s.settings.textNormal], ['large', s.settings.textLarge], ['xl', s.settings.textXl]],
+            [['normal', () => S().textNormal], ['large', () => S().textLarge], ['xl', () => S().textXl]],
             v => save({ accessibility: { textSize: v } }), st.accessibility.textSize)),
-        checkboxEl('set-handed', s.settings.leftHanded, st.accessibility.leftHanded,
+        checkboxEl('set-handed', () => S().leftHanded, st.accessibility.leftHanded,
           v => save({ accessibility: { leftHanded: v } })),
-        el('label', { class: 'field' }, el('span', { text: s.settings.hintMode }),
+        el('label', { class: 'field' }, el('span', { text: () => S().hintMode }),
           selectEl('set-hintmode',
-            [['toggle', s.settings.hintToggle], ['hold', s.settings.hintHold]],
+            [['toggle', () => S().hintToggle], ['hold', () => S().hintHold]],
             v => save({ accessibility: { hintMode: v } }), st.accessibility.hintMode)),
-        checkboxEl('set-haptics', s.settings.haptics, st.accessibility.haptics,
+        checkboxEl('set-haptics', () => S().haptics, st.accessibility.haptics,
           v => save({ accessibility: { haptics: v } })),
         el('button', {
           class: 'btn', type: 'button',
           onclick: () => this._call('play', 'learn', { replay: true }),
-        }, s.settings.tutorialReplay),
-        el('p', { class: 'muted', text: s.settings.tutorialReplayNote })));
+        }, () => S().tutorialReplay),
+        el('p', { class: 'muted', text: () => S().tutorialReplayNote })));
   }
 
   /**
@@ -876,9 +952,9 @@ export class UI {
    * so "From preset (…)" labels follow the current preset.
    */
   _buildGraphicsControls(save) {
-    const t = gfxStrings();
     const wrap = el('div', { class: 'gfx-controls' });
     const render = (focusId) => {
+      const t = gfxStrings();
       const cur = { ...defaultGraphics(), ...(this.settings.graphics && this.settings.graphics.gfx) };
       const info = this._call('graphicsInfo', t.describe) || {};
       const detected = info.detected || 'balanced';
@@ -928,6 +1004,7 @@ export class UI {
       }
     };
     render(null);
+    this._gfxPanels.push({ wrap, render });
     return wrap;
   }
 
@@ -945,14 +1022,21 @@ export class UI {
    */
   /** Results leaderboard line: { posted, rank } from the platform score post. */
   setResultsLeaderboard(r) {
+    this._lbResult = r;
     const line = this.root.querySelector('.results-lb');
     if (!line || !r) return;
     line.textContent = !r.posted ? shText('lbNotPosted')
       : r.rank ? shText('lbRank', { rank: r.rank }) : shText('lbPosted');
   }
 
+  /** Results screen; text fields may be functions (re-rendered on a language change). */
   showResults(data) {
-    const d = data || {};
+    if (data !== this._lastResults) this._lbResult = null;
+    this._lastResults = data;
+    const txt = (v) => (typeof v === 'function' ? v() : v);
+    const d = Object.fromEntries(Object.entries(data || {}).map(([k, v]) => [k, txt(v)]));
+    if (d.progress && typeof d.progress === 'object') d.progress = Object.fromEntries(Object.entries(d.progress).map(([k, v]) => [k, txt(v)]));
+    d.breakdown = (d.breakdown || []).map((row) => ({ label: txt(row.label), value: txt(row.value) }));
     const s = this.s;
     this.screen = 'results';
     this.g = null;
@@ -964,8 +1048,8 @@ export class UI {
     const achNodes = (d.achievements || []).map(key => {
       const a = known[key];
       return el('li', { class: 'list-card is-unlocked' },
-        el('strong', { text: '\u2605 ' + (a ? a.name : key) }),
-        a && a.desc ? el('p', { text: a.desc }) : null);
+        el('strong', { text: '\u2605 ' + (a ? T(a.name) : key) }),
+        a && a.desc ? el('p', { text: T(a.desc) }) : null);
     });
     const breakdown = (d.breakdown || []).map(row =>
       el('tr', {}, el('th', { scope: 'row', text: row.label }), el('td', { text: String(row.value) })));
@@ -1003,6 +1087,8 @@ export class UI {
             onclick: () => { this._call('dismissResults'); this._call('leaveToTitle'); },
           }, s.results.backToTitle))));
     this.root.append(node);
+    if (this._lbResult) this.setResultsLeaderboard(this._lbResult);
+    if (this._quiet) return;
     if (d.headline) this.announce(d.headline, true);
     const focusTarget = node.querySelector('[data-autofocus]');
     if (focusTarget) focusTarget.focus({ preventScroll: true });
@@ -1188,7 +1274,7 @@ export class UI {
     const suitName = s.suits[suit];
     return el('span', {
       class: 'card ' + SUIT_CLASS[suit] + (opts.small ? ' card-small' : ''),
-      role: 'img', aria: { label: `${rankName} of ${suitName}` },
+      role: 'img', aria: { label: T('{rank} of {suit}', { rank: rankName, suit: suitName }) },
     },
       el('span', { class: 'card-rank', 'aria-hidden': 'true', text: rankLabel }),
       el('span', { class: 'card-suit', 'aria-hidden': 'true', text: symbol }),
@@ -1214,6 +1300,7 @@ export class UI {
     if (this.screen !== 'game' || !this.g || !this.g.seats || !this.g.seats.isConnected) {
       this.showScreen('game');
     }
+    this._lastView = view;
     const g = this.g;
     const s = this.s;
     const snap = view.snapshot;
@@ -1242,7 +1329,7 @@ export class UI {
 
     // Status rail.
     g.handInfo.textContent = fmt(s.game.hand, { n: snap.handNumber || 0 }) + ' · ' +
-      fmt(s.game.phase, { phase: snap.phase });
+      fmt(s.game.phase, { phase: phaseName(snap.phase) });
     g.pot.textContent = fmtChips(this._potTotal(snap));
     g.currentBet.textContent = fmtChips(snap.currentBet || 0);
     g.toCall.textContent = fmtChips(snap.toCall || 0);
@@ -1277,10 +1364,11 @@ export class UI {
     g.undoBtn.disabled = !view.canUndo;
     g.hintBtn.disabled = !(view.hintsEnabled || view.hint);
 
-    // Fold any new engine log lines into the feed (covers reconnects).
+    // The engine's own log (English, part of the replayable state) is not
+    // shown: the feed is built from localized events (showEvents). It only
+    // tells us when a new game started.
     const log = snap.log || [];
-    if (this.logSeen > log.length) { this.logSeen = 0; this.feed.length = 0; } // new game
-    for (let i = this.logSeen; i < log.length; i++) this._feedPush(log[i]);
+    if (this.logSeen > log.length) { this.feed.length = 0; this._renderFeed(); } // new game
     this.logSeen = log.length;
 
     this.actionPending = false;
@@ -1371,7 +1459,7 @@ export class UI {
         }
       }
 
-      const lastText = p.lastAction ? fmt(s.game.seatLastAction, { name, action: p.lastAction }) : '';
+      const lastText = p.lastAction ? fmt(s.game.seatLastAction, { name, action: actionName(p.lastAction) }) : '';
       if (refs.last.textContent !== lastText) refs.last.textContent = lastText;
     }
   }
@@ -1476,45 +1564,51 @@ export class UI {
       this.actionPending = false;
       if (g && g._actionBtns) for (const b of Object.values(g._actionBtns)) b.disabled = false;
     }
-    this.announce(fmt(this.s.a11y.actionTaken, { action: type }));
+    this.announce(fmt(this.s.a11y.actionTaken, { action: actionName(type) }));
   }
 
   /** Engine events -> feed lines, toasts, announcements. */
   showEvents(events) {
     if (!Array.isArray(events)) return;
+    // Feed lines are functions so the log re-renders in a new language.
+    const name = (id) => () => {
+      if (id === this.youId) return this.s.common.you;
+      return this.playerNames.get(id) || id || '?';
+    };
+    const line = (key, vars) => () => {
+      const v = {};
+      for (const [k, x] of Object.entries(vars || {})) v[k] = typeof x === 'function' ? x() : x;
+      return fmt(this.s.events[key], v);
+    };
+    const hand = (n) => () => (n ? T(n) : '');
     for (const ev of events) {
-      const name = (id) => {
-        if (id === this.youId) return this.s.common.you;
-        return this.playerNames.get(id) || id || '?';
-      };
       let text = null, toast = false, assertive = false;
-      const S = this.s.events;
       switch (ev.type) {
         case 'handStart':
-          text = fmt(S.handStart, { n: ev.handNumber, dealer: name(ev.dealerId != null ? ev.dealerId : ev.dealer) });
+          text = line('handStart', { n: ev.handNumber, dealer: name(ev.dealerId != null ? ev.dealerId : ev.dealer) });
           break;
         case 'post':
-          text = fmt(ev.kind === 'sb' ? S.postSb : S.postBb, { name: name(ev.playerId), amount: fmtChips(ev.amount) });
+          text = line(ev.kind === 'sb' ? 'postSb' : 'postBb', { name: name(ev.playerId), amount: fmtChips(ev.amount) });
           break;
-        case 'deal': text = S.deal; break;
+        case 'deal': text = line('deal'); break;
         case 'action': {
-          const tpl = S[ev.action] || S.advance;
-          text = fmt(tpl, { name: name(ev.playerId), amount: fmtChips(ev.amount || 0) });
+          text = line(this.s.events[ev.action] ? ev.action : 'advance', { name: name(ev.playerId), amount: fmtChips(ev.amount || 0) });
           break;
         }
         case 'street': {
           const cards = this.cardsText(ev.cards);
-          const tpl = ev.phase === 'flop' ? S.streetFlop : ev.phase === 'turn' ? S.streetTurn : ev.phase === 'river' ? S.streetRiver : S.street;
-          text = fmt(tpl, { cards, phase: ev.phase });
+          const key = ev.phase === 'flop' ? 'streetFlop' : ev.phase === 'turn' ? 'streetTurn' : ev.phase === 'river' ? 'streetRiver' : 'street';
+          text = line(key, { cards, phase: () => phaseName(ev.phase) });
           toast = true;
           break;
         }
         case 'showdown': {
           const parts = (ev.hands || []).map(h => {
             if (h.playerId != null) this.playerNames.set(h.playerId, h.name || this.playerNames.get(h.playerId));
-            return fmt(S.showdown, { name: h.name || name(h.playerId), hand: h.evalResult ? h.evalResult.name : '' });
+            const nm = h.name;
+            return line('showdown', { name: nm ? nm : name(h.playerId), hand: hand(h.evalResult ? h.evalResult.name : '') });
           });
-          text = parts.join(' ');
+          text = parts.length ? () => parts.map((f) => f()).join(' ') : null;
           toast = parts.length > 0;
           break;
         }
@@ -1522,26 +1616,26 @@ export class UI {
           const parts = [];
           for (const pot of ev.pots || []) {
             for (const w of pot.winners || []) {
-              const tpl = w === this.youId ? S.youWin : (pot.winners.length > 1 ? S.awardSplit : S.award);
-              parts.push(fmt(tpl, { name: name(w), amount: fmtChips(pot.amount / (pot.winners.length || 1)), hand: pot.handName || '' }));
+              const key = w === this.youId ? 'youWin' : (pot.winners.length > 1 ? 'awardSplit' : 'award');
+              parts.push(line(key, { name: name(w), amount: fmtChips(pot.amount / (pot.winners.length || 1)), hand: hand(pot.handName || '') }));
             }
           }
-          text = parts.join(' ');
+          text = parts.length ? () => parts.map((f) => f()).join(' ') : null;
           toast = true; assertive = (ev.pots || []).some(p => (p.winners || []).includes(this.youId));
           break;
         }
-        case 'eliminated': text = fmt(S.eliminated, { name: name(ev.playerId) }); toast = true; break;
-        case 'handEnd': text = fmt(S.handEnd, { n: ev.handNumber }); break;
+        case 'eliminated': text = line('eliminated', { name: name(ev.playerId) }); toast = true; break;
+        case 'handEnd': text = line('handEnd', { n: ev.handNumber }); break;
         case 'terminal': {
           const champ = ev.terminal && ev.terminal.championId;
-          text = fmt(S.terminal, { name: name(champ) });
+          text = line('terminal', { name: name(champ) });
           toast = true; assertive = true;
           break;
         }
       }
       if (text) {
         this._feedPush(text);
-        if (toast) this._toast(text, assertive);
+        if (toast) this._toast(text(), assertive);
       }
     }
   }
@@ -1550,10 +1644,14 @@ export class UI {
     if (!text) return;
     this.feed.push(text);
     if (this.feed.length > 100) this.feed.splice(0, this.feed.length - 100);
+    this._renderFeed();
+  }
+
+  _renderFeed() {
     const g = this.g;
     if (g && g.feed) {
       g.feed.textContent = '';
-      for (const line of this.feed.slice(-FEED_MAX)) g.feed.append(el('li', { text: line }));
+      for (const line of this.feed.slice(-FEED_MAX)) g.feed.append(el('li', { text: typeof line === 'function' ? line() : line }));
     }
   }
 
@@ -1586,7 +1684,7 @@ export class UI {
     const prevFocus = document.activeElement;
     const close = () => this._closeModal(entry);
     const title = el('h2', { class: 'modal-title', text: titleText, id: 'modal-title-' + this.modals.length });
-    const closeBtn = el('button', { class: 'btn btn-ghost modal-close', type: 'button', onclick: close }, '\u2715 ' + this.s.common.close);
+    const closeBtn = el('button', { class: 'btn btn-ghost modal-close', type: 'button', onclick: close }, () => '\u2715 ' + this.s.common.close);
     const dialog = el('div', {
       class: 'modal', role: 'dialog', 'aria-modal': 'true', 'aria-labelledby': title.id,
     }, el('div', { class: 'modal-head' }, title, closeBtn), el('div', { class: 'modal-content' }, contentNode));
@@ -1625,40 +1723,40 @@ export class UI {
 
   _openPause() {
     if (this.modals.some(m => m.isPause)) return;
-    const s = this.s.modals;
+    const s = () => this.s.modals;
     this._call('pauseToggle'); // open => pause; closing (any path) => resume once
     const content = el('div', { class: 'pause-menu' },
       el('button', {
         class: 'btn btn-primary btn-wide', type: 'button', 'data-autofocus': '',
         onclick: () => this._closeTopModal(),
-      }, s.resume),
+      }, () => s().resume),
       el('button', {
         class: 'btn btn-wide', type: 'button',
-        onclick: () => this._openModal(this.s.settings.heading, this._buildSettingsPanel()),
-      }, s.pauseSettings),
+        onclick: () => this._openModal(() => this.s.settings.heading, this._buildSettingsPanel()),
+      }, () => s().pauseSettings),
       el('button', {
         class: 'btn btn-wide', type: 'button',
-        onclick: () => this._openModal(this.s.help.heading, this._screen_help(null, true)),
-      }, s.pauseHelp),
+        onclick: () => this._openModal(() => this.s.help.heading, this._screen_help(null, true)),
+      }, () => s().pauseHelp),
       el('button', {
         class: 'btn btn-wide btn-danger', type: 'button',
         onclick: () => this._confirmLeave(() => {
           while (this.modals.length) this._closeTopModal();
           this._call('leaveToTitle');
         }),
-      }, s.pauseLeave));
-    const entry = this._openModal(s.pauseTitle, content, { dismissable: false });
+      }, () => s().pauseLeave));
+    const entry = this._openModal(() => s().pauseTitle, content, { dismissable: false });
     entry.isPause = true;
     entry.onClose = () => this._call('pauseToggle');
   }
 
   _confirmLeave(onConfirm) {
-    const s = this.s.modals;
-    const entry = this._openModal(s.confirmLeaveTitle, el('div', {},
-      el('p', { text: s.confirmLeaveBody }),
+    const s = () => this.s.modals;
+    const entry = this._openModal(() => s().confirmLeaveTitle, el('div', {},
+      el('p', { text: () => s().confirmLeaveBody }),
       el('div', { class: 'field-row' },
-        el('button', { class: 'btn btn-danger', type: 'button', onclick: () => { this._closeTopModal(); onConfirm(); } }, s.confirmLeaveConfirm),
-        el('button', { class: 'btn', type: 'button', 'data-autofocus': '', onclick: () => this._closeTopModal() }, s.confirmLeaveStay))));
+        el('button', { class: 'btn btn-danger', type: 'button', onclick: () => { this._closeTopModal(); onConfirm(); } }, () => s().confirmLeaveConfirm),
+        el('button', { class: 'btn', type: 'button', 'data-autofocus': '', onclick: () => this._closeTopModal() }, () => s().confirmLeaveStay))));
     return entry;
   }
 
@@ -1793,15 +1891,15 @@ function checkboxEl(id, label, checked, onChange) {
 }
 
 /** Human-readable goal summary (content.js goal shapes). */
-function goalText(g) {
+export function goalText(g) {
   if (!g || !g.type) return '';
   switch (g.type) {
-    case 'winMatch': return 'Win the table (finish 1st)';
-    case 'chipsAtLeast': return `Finish with at least ${fmtChips(g.amount)} chips`;
-    case 'winHands': return `Win ${g.count} hands`;
-    case 'winShowdowns': return `Win ${g.count} showdowns`;
-    case 'surviveHands': return `Survive ${g.count} hands`;
-    case 'finishTop': return `Finish in the top ${g.place}`;
+    case 'winMatch': return T('Win the table (finish 1st)');
+    case 'chipsAtLeast': return T('Finish with at least {n} chips', { n: fmtChips(g.amount) });
+    case 'winHands': return T('Win {n} hands', { n: g.count });
+    case 'winShowdowns': return T('Win {n} showdowns', { n: g.count });
+    case 'surviveHands': return T('Survive {n} hands', { n: g.count });
+    case 'finishTop': return T('Finish in the top {n}', { n: g.place });
     default: return g.type;
   }
 }
@@ -1809,10 +1907,10 @@ function goalText(g) {
 function constraintText(c) {
   if (!c || !c.type) return '';
   switch (c.type) {
-    case 'moveLimit': return `at most ${c.moves ?? c.count} actions`;
-    case 'speedTarget': return `finish within ${Math.round(((c.maxMs ?? c.ms) || 0) / 60000)} minutes`;
-    case 'shortStack': return 'short stack start';
-    case 'noFoldPreflop': return 'no folding before the flop';
+    case 'moveLimit': return T('at most {n} actions', { n: c.moves ?? c.count });
+    case 'speedTarget': return T('finish within {n} minutes', { n: Math.round(((c.maxMs ?? c.ms) || 0) / 60000) });
+    case 'shortStack': return T('short stack start');
+    case 'noFoldPreflop': return T('no folding before the flop');
     default: return c.type;
   }
 }

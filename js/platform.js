@@ -71,6 +71,8 @@ export class Platform {
     p._bindings = JSON.parse(JSON.stringify(DEFAULT_BINDINGS));
     if (sh) {
       sh.on('saved', (ok) => p._setSyncStatus(ok ? 'synced' : 'error'));
+      // Writes after a load are conditional (ETag): another device saved first.
+      sh.on('saveconflict', () => { p._setSyncStatus('saving'); if (p._onConflict) p._onConflict(); });
       sh.on('auth', (a) => { if (!a.signedIn) { p._identity = null; p._setSyncStatus('offline'); } });
     }
     return p;
@@ -217,7 +219,12 @@ export class Platform {
     for (const fn of this._syncListeners) { try { fn(status); } catch { /* listener guard */ } }
   }
 
-  /** Load the remote save doc (hosted only); null when none / offline. Remote wins. */
+  /** fn() runs when a cloud write lost to another device (reload + merge + save). */
+  onConflict(fn) { this._onConflict = fn; }
+  /** True while cloud writes are blocked after a lost conditional write. */
+  saveConflicted() { const sh = SH(); return !!(sh && sh.saveConflicted && sh.saveConflicted()); }
+
+  /** Load the remote save doc (hosted only); null when none / offline. Main merges it with local progress. */
   async cloudLoad() {
     if (!this.token) return null;
     const doc = await SH().loadJSON();
@@ -225,10 +232,10 @@ export class Platform {
   }
 
   /** Queue a cloud save (debounced ~2 s; flushed on pagehide/visibilitychange). */
-  scheduleCloudSave(doc) {
+  scheduleCloudSave(doc, delayMs) {
     if (!this.token || !doc) return;
     this._setSyncStatus('saving');
-    SH().saveJSON(doc, CLOUD_SAVE_DEBOUNCE_MS);
+    SH().saveJSON(doc, delayMs ?? CLOUD_SAVE_DEBOUNCE_MS);
   }
 
   /** Flush any queued cloud save immediately (pagehide / visibilitychange). */

@@ -347,7 +347,8 @@ raise amount chosen via slider/stepper within legal min/max; responsive: ≥1024
 min 44×44px targets; no hover-only info; labels must survive 30% text expansion (flex-wrap, no
 fixed widths on buttons). All colors paired with icons/text (never color-only). CSS implements the
 5 themes via `data-theme` attribute custom properties. All user-facing strings through one
-`STRINGS` object at top of ui.js (English only, but structured for later i18n).
+`STRINGS` object at top of ui.js; its English leaves are translation keys rendered in the game
+language (`js/strings.js` tables, nine locales) and re-rendered by `UI.relabel()` on a language change.
 
 ## js/main.js — lead writes this; do not create
 
