@@ -987,7 +987,7 @@ export class UI {
 
       const gpu = info.gpu || t.unknownGpu;
       const summary = el('p', { class: 'gfx-summary muted', id: 'gfx-summary', 'aria-live': 'polite' },
-        info.no3d ? t.no3d : [gpu, info.summary].filter(Boolean).join(' · '));
+        info.no3d ? t.no3d : [gpu, info.level != null ? fmt(t.level, { n: info.level }) : null, info.summary].filter(Boolean).join(' · '));
       const note = el('p', { class: 'gfx-note', id: 'gfx-post-note', role: 'note', hidden: !info.postFailed }, t.postUnavailable);
 
       wrap.textContent = '';

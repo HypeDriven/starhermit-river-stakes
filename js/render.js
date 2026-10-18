@@ -1,6 +1,6 @@
 // River Stakes — Three.js presentation layer: riverside card salon driven by engine snapshots.
 
-import { defaultGraphics, describe, detectPreset, resolve, SHADOW_MAP } from './gfx.js';
+import { defaultGraphics, describe, detectLevel, presetForLevel, resolve, SHADOW_MAP, CONFETTI_MAX, MOTE_MAX } from './gfx.js';
 
 /* ---------------------------------------------------------------------------
  * THREE is loaded dynamically inside Renderer.create so the module imports
@@ -162,6 +162,36 @@ function roundRectPath(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
+// Run a post pass at a fraction of the frame: EffectComposer.addPass/setSize hand every pass the full
+// frame size, so the pass's own setSize applies the budget's scale (half-res bloom/GTAO below Ultra).
+function atScale(pass, k) {
+  if (!(k < 1)) return pass;
+  const setSize = pass.setSize.bind(pass);
+  pass.setSize = (w, h) => setSize(Math.max(1, Math.round(w * k)), Math.max(1, Math.round(h * k)));
+  return pass;
+}
+
+// The preset budget's shading model for a lit surface: Lambert (Low), Standard (Balanced) or Physical
+// (High, Ultra). Physical-only surfaces (cards, lacquered chips) step down to Standard and Lambert; plain
+// Standard surfaces become Lambert on Low only. Colour, maps and emissive carry over.
+const SHADING = { lambert: 0, standard: 1, physical: 2 };
+function shadeAs(old, tier, authored) {
+  const want = Math.min(SHADING[tier], SHADING[authored]);
+  const cls = want === 0 ? THREE.MeshLambertMaterial : want === 1 ? THREE.MeshStandardMaterial : THREE.MeshPhysicalMaterial;
+  if (old.constructor === cls) return old;
+  const m = new cls();
+  for (const k of ['map', 'transparent', 'opacity', 'depthWrite', 'side', 'name']) m[k] = old[k];
+  m.color.copy(old.color);
+  if (old.emissive) { m.emissive.copy(old.emissive); m.emissiveIntensity = old.emissiveIntensity; }
+  const pbr = old.userData.pbr || (old.isMeshStandardMaterial ? { roughness: old.roughness, metalness: old.metalness, envMapIntensity: old.envMapIntensity, clearcoat: old.clearcoat || 0, clearcoatRoughness: old.clearcoatRoughness || 0 } : null);
+  m.userData.pbr = pbr;
+  if (pbr && want >= 1) { m.roughness = pbr.roughness; m.metalness = pbr.metalness; m.envMapIntensity = pbr.envMapIntensity; }
+  if (pbr && want === 2) { m.clearcoat = pbr.clearcoat; m.clearcoatRoughness = pbr.clearcoatRoughness; }
+  m.userData.authored = authored;
+  old.dispose();
+  return m;
+}
+
 /* ------------------------------- Particles ------------------------------- */
 // Bounded, pooled chip-spray/confetti. Positions/velocities/life are
 // preallocated typed arrays; dead particles park at y=-999 (no allocations
@@ -169,6 +199,7 @@ function roundRectPath(ctx, x, y, w, h, r) {
 class ConfettiPool {
   constructor(scene, max, softDotTexture, rng) {
     this.max = max;
+    this.cap = max; // live pool size: the preset's confetti budget (≤ max)
     this.rng = rng;
     this.pos = new Float32Array(max * 3);
     this.vel = new Float32Array(max * 3);
@@ -192,7 +223,7 @@ class ConfettiPool {
   burst(origin, count, colorsHex) {
     if (!this._color) this._color = new THREE.Color();
     let spawned = 0;
-    for (let i = 0; i < this.max && spawned < count; i++) {
+    for (let i = 0; i < this.cap && spawned < count; i++) {
       if (this.life[i] > 0) continue;
       spawned++;
       const i3 = i * 3;
@@ -209,9 +240,15 @@ class ConfettiPool {
     this.points.geometry.attributes.position.needsUpdate = true;
     this.points.geometry.attributes.color.needsUpdate = true;
   }
+  setCap(n) {
+    this.cap = Math.max(0, Math.min(this.max, n));
+    for (let i = this.cap; i < this.max; i++) { this.life[i] = 0; this.pos[i * 3 + 1] = -999; }
+    this.points.geometry.setDrawRange(0, this.cap);
+    this.points.geometry.attributes.position.needsUpdate = true;
+  }
   update(dt) {
     let any = false;
-    for (let i = 0; i < this.max; i++) {
+    for (let i = 0; i < this.cap; i++) {
       if (this.life[i] <= 0) continue;
       any = true;
       this.life[i] -= dt;
@@ -322,7 +359,15 @@ export class Renderer {
     // graphics settings state (see gfx.js)
     this.gpu = this._detectGpu();
     this.mobile = isMobileDevice();
-    this.detected = detectPreset(this.gpu, { mobile: this.mobile });
+    // StarHermit hardware level (js/gpu-level.js): renderer string + device facts (phone/tablet, cores, memory).
+    let sys = { mobile: this.mobile, webgl2: !!this.renderer.capabilities.isWebGL2 };
+    try {
+      const G = globalThis.StarHermitGpu;
+      if (G) { const d = G.detectSystem(); sys = { ...sys, mobile: sys.mobile || d.mobile, touch: d.touch, screen: d.screen, cores: d.cores, memoryGb: d.memoryGb, astc: d.astc }; }
+    } catch (_) { /* defaults */ }
+    this.gpuLevel = detectLevel(this.gpu, sys);
+    this.detected = presetForLevel(this.gpuLevel);
+    this._budget = null;
     this.q = null;
     this.saved = defaultGraphics();
     this.composer = null;
@@ -401,13 +446,13 @@ export class Renderer {
     this._buildEnvironment();
     this._buildFlyPool();
 
-    this.confetti = new ConfettiPool(this.scene, 240, this._softDotTex, mulberry32(fnv1a('river-stakes-fx')));
+    this.confetti = new ConfettiPool(this.scene, CONFETTI_MAX, this._softDotTex, mulberry32(fnv1a('river-stakes-fx')));
     this._buildMotes();
   }
 
   /** Warm fireflies drifting over the deck and the river edge (particles: high). */
   _buildMotes() {
-    const n = 70;
+    const n = MOTE_MAX; // built at the largest budget; the preset draws budget.motes of them
     const rng = mulberry32(fnv1a('river-stakes-motes'));
     const pos = new Float32Array(n * 3);
     const seed = new Float32Array(n * 4);
@@ -438,7 +483,8 @@ export class Renderer {
   _updateMotes(t) {
     const m = this.motes;
     if (!m || !m.points.visible) return;
-    const { pos, seed, n } = m;
+    const { pos, seed } = m;
+    const n = m.count ?? m.n;
     for (let i = 0; i < n; i++) {
       const k = seed[i * 4 + 3];
       pos[i * 3] = seed[i * 4] + Math.sin(t * 0.21 + k) * 0.6;
@@ -452,8 +498,10 @@ export class Renderer {
 
   /** Grayscale wood grain; multiplied by the theme's table colour. */
   _makeWoodTexture() {
-    const c = makeCanvas(512, 256);
+    const n = this._texSize(); // authored at 512×256, drawn into the preset's texture budget
+    const c = makeCanvas(n, n / 2);
     const ctx = c.getContext('2d');
+    ctx.scale(n / 512, n / 512);
     ctx.fillStyle = '#e6e0da'; ctx.fillRect(0, 0, 512, 256);
     const rng = mulberry32(fnv1a('river-stakes-wood'));
     for (let i = 0; i < 220; i++) {
@@ -561,9 +609,13 @@ export class Renderer {
     this.scene.add(contact);
   }
 
+  _texSize() { return (this._budget && this._budget.texture) || 512; }
+
   _makeFeltTexture() {
-    const c = makeCanvas(512, 512);
+    const n = this._texSize(); // authored at 512 px
+    const c = makeCanvas(n, n);
     const ctx = c.getContext('2d');
+    ctx.scale(n / 512, n / 512);
     const felt = this.palette.felt;
     ctx.fillStyle = felt; ctx.fillRect(0, 0, 512, 512);
     const g = ctx.createRadialGradient(256, 256, 40, 256, 256, 260);
@@ -630,8 +682,10 @@ export class Renderer {
     const suit = (card / 13) | 0;
     const red = RED_SUITS.has(suit);
     const ink = red ? '#b23a32' : '#26282e';
-    const c = makeCanvas(256, 360);
+    const cw = this._cardSize(); // authored at 256×360, drawn into the preset's card budget
+    const c = makeCanvas(cw, Math.round(cw * 360 / 256));
     const ctx = c.getContext('2d');
+    ctx.scale(cw / 256, cw / 256);
     // stock + border
     ctx.fillStyle = '#f8f4e9';
     roundRectPath(ctx, 0, 0, 256, 360, 26); ctx.fill();
@@ -666,8 +720,10 @@ export class Renderer {
 
   _backTexture() {
     if (this._backTex) return this._backTex;
-    const c = makeCanvas(256, 360);
+    const cw = this._cardSize();
+    const c = makeCanvas(cw, Math.round(cw * 360 / 256));
     const ctx = c.getContext('2d');
+    ctx.scale(cw / 256, cw / 256);
     ctx.fillStyle = this.palette.cardBack;
     roundRectPath(ctx, 0, 0, 256, 360, 26); ctx.fill();
     // original diamond-ripple pattern: nested stroked diamonds
@@ -686,6 +742,8 @@ export class Renderer {
     this._backTex.colorSpace = THREE.SRGBColorSpace;
     return this._backTex;
   }
+
+  _cardSize() { return (this._budget && this._budget.card) || 256; }
 
   /** One card slot: a pivot whose rotation.x flips face (0) / back (PI). */
   _makeCard() {
@@ -1096,7 +1154,8 @@ export class Renderer {
       uSky: { value: new THREE.Color(this.palette.sky) },
       uGlint: { value: new THREE.Color(this.palette.lantern) },
     };
-    const waterGeo = new THREE.PlaneGeometry(140, 46, 64, 16);
+    const waterGeo = this._waterGeo(64);
+    this._waterSegs = 64;
     const waterMat = new THREE.ShaderMaterial({
       uniforms: this.waterUniforms,
       vertexShader: `
@@ -1130,7 +1189,7 @@ export class Renderer {
         }`,
       fog: false,
     });
-    const water = new THREE.Mesh(waterGeo, waterMat);
+    const water = this.water = new THREE.Mesh(waterGeo, waterMat);
     water.rotation.x = -Math.PI / 2;
     water.position.set(0, -0.92, -32);
     water.layers.set(LAYER.ENV);
@@ -1146,7 +1205,7 @@ export class Renderer {
     const deckGeo = new THREE.CircleGeometry(10, 48);
     deckGeo.rotateX(-Math.PI / 2);
     this.deckMat = new THREE.MeshStandardMaterial({ map: this._deckTex, roughness: 0.85, metalness: 0, envMapIntensity: 0.35 });
-    const deck = new THREE.Mesh(deckGeo, this.deckMat);
+    const deck = this.deckMesh = new THREE.Mesh(deckGeo, this.deckMat);
     deck.position.y = -1.0;
     deck.receiveShadow = true;
     deck.layers.set(LAYER.ENV);
@@ -1224,6 +1283,8 @@ export class Renderer {
     this._layoutProps();
   }
 
+  _waterGeo(n) { return new THREE.PlaneGeometry(140, 46, n, Math.max(4, n / 4)); }
+
   _makeBank(env, z, height, alpha, colorHex) {
     const rng = mulberry32(fnv1a('bank' + z + (this.theme && this.theme.id ? String(this.theme.id) : '')));
     const shape = new THREE.Shape();
@@ -1260,8 +1321,10 @@ export class Renderer {
   }
 
   _makeDeckTexture() {
-    const c = makeCanvas(256, 256);
+    const n = this._texSize() / 2; // authored at 256 px
+    const c = makeCanvas(n, n);
     const ctx = c.getContext('2d');
+    ctx.scale(n / 256, n / 256);
     ctx.fillStyle = this.palette.wood; ctx.fillRect(0, 0, 256, 256);
     ctx.strokeStyle = 'rgba(0,0,0,0.35)';
     ctx.lineWidth = 3;
@@ -1396,8 +1459,9 @@ export class Renderer {
    */
   setGraphics(saved) {
     this.saved = { ...defaultGraphics(), ...(saved || {}) };
-    const g = resolve(this.saved, this.detected);
+    const g = resolve(this.saved, this.detected, this.gpuLevel);
     this.q = g;
+    this._applyBudget(g.budget);
 
     const size = SHADOW_MAP[g.shadows];
     const shadowsWere = this.renderer.shadowMap.enabled;
@@ -1414,6 +1478,7 @@ export class Renderer {
 
     this._applyDetail(g.detail === 'detailed');
     this._particlesHigh = g.particles === 'high';
+    if (this.confetti) this.confetti.setCap(this._particlesHigh ? this._confettiCap : Math.round(this._confettiCap / 3));
     this._applyMotion();
 
     this.adaptiveScale = 1;
@@ -1429,6 +1494,7 @@ export class Renderer {
     const px = [Math.round(this._size[0] * this._pixelRatio), Math.round(this._size[1] * this._pixelRatio)];
     return {
       gpu: this.gpu,
+      level: this.gpuLevel,
       detected: this.detected,
       resolved: this.q,
       pixels: px,
@@ -1485,7 +1551,76 @@ export class Renderer {
     this.brassTrim.visible = on;
     for (const h of this.lanternHalos) h.visible = on;
     this._propsMed.visible = on;
-    for (const pl of this.lanternLights) pl.intensity = on ? 3 : 0;
+    this._applyLights();
+  }
+
+  // Real lantern point lights: only the preset's budget of them is in the scene (a hidden light leaves
+  // every lit shader's light loop; intensity 0 would not).
+  _applyLights() {
+    const n = this._detail && this._budget ? this._budget.lights : 0;
+    this.lanternLights.forEach((pl, i) => { pl.visible = i < n; pl.intensity = i < n ? 3 : 0; });
+  }
+
+  _cardSlots() {
+    const out = [];
+    for (const seat of this._seats) out.push(...seat.cards);
+    out.push(...this._community);
+    return out;
+  }
+
+  /** Per-preset assets (see BUDGETS in gfx.js): shading model, texture sizes, river mesh, lights, particles. */
+  _applyBudget(b) {
+    const prev = this._budget || {};
+    this._budget = b;
+    if (b.texture !== (prev.texture ?? 512)) { // textures are first drawn at the authored 512 px
+      const wood = this._makeWoodTexture();
+      if (this.woodMat.map === this._woodTex) this.woodMat.map = wood;
+      this._woodTex.dispose(); this._woodTex = wood;
+      const deck = this._makeDeckTexture();
+      this.deckMat.map?.dispose(); this.deckMat.map = deck;
+      if (this._detail !== null) this._rebuildFelt();
+    }
+    if (b.card !== (prev.card ?? 256)) { // card faces are first drawn at the authored 256 px
+      for (const t of this._faceCache.values()) t.dispose();
+      this._faceCache.clear();
+      if (this._backTex) { this._backTex.dispose(); this._backTex = null; }
+      const back = this._backTexture();
+      for (const slot of this._cardSlots()) {
+        slot.back.material.map = back;
+        slot.face.material.map = slot.mode === 'face' && slot.card >= 0 ? this._faceTexture(slot.card) : this._blankTex;
+      }
+    }
+    if (prev.material !== b.material) {
+      const t = b.material;
+      this.woodMat = this.tableMesh.material = shadeAs(this.woodMat, t, 'standard');
+      this.feltMat = this.feltMesh.material = shadeAs(this.feltMat, t, 'standard');
+      this.deckMat = this.deckMesh.material = shadeAs(this.deckMat, t, 'standard');
+      for (const slot of this._cardSlots()) {
+        slot.face.material = shadeAs(slot.face.material, t, 'physical');
+        slot.back.material = shadeAs(slot.back.material, t, 'physical');
+      }
+      this._cardMats = this._cardSlots().flatMap((slot) => [slot.face.material, slot.back.material]);
+      this._chipMatsPlain = this._chipMatsPlain.map((m) => shadeAs(m, t, 'standard'));
+      const caps = new Map();
+      this._chipMatsRich = this._chipMatsRich.map(([side, cap]) => {
+        const c = caps.get(cap) || shadeAs(cap, t, 'physical'); caps.set(cap, c);
+        return [shadeAs(side, t, 'physical'), c, c];
+      });
+      if (this._detail !== null) {
+        for (let d = 0; d < this.chipMeshes.length; d++) this.chipMeshes[d].material = this._detail ? this._chipMatsRich[d] : this._chipMatsPlain[d];
+        for (const m of this._cardMats) { m.clearcoat = this._detail ? 0.2 : 0; m.clearcoatRoughness = 0.5; }
+        this.woodMat.roughness = this._detail ? 0.42 : 0.55;
+      }
+    }
+    if (this._waterSegs !== b.water) {
+      this._waterSegs = b.water;
+      const old = this.water.geometry;
+      this.water.geometry = this._waterGeo(b.water);
+      old.dispose();
+    }
+    this._applyLights();
+    if (this.motes) { this.motes.count = Math.min(this.motes.n, b.motes); this.motes.points.geometry.setDrawRange(0, this.motes.count); }
+    this._confettiCap = b.confetti;
   }
 
   _rebuildFelt() {
@@ -1559,11 +1694,11 @@ export class Renderer {
             if (o.isSprite || (o.material && !Array.isArray(o.material) && o.material.depthWrite === false)) o.visible = false;
           });
         };
-        composer.addPass(ao);
+        composer.addPass(atScale(ao, g.budget.aoRes));
       }
       if (g.bloom === 'on') {
         // high threshold: only the lantern globes, halos and bright win glints bloom
-        composer.addPass(new POST.UnrealBloomPass(new THREE.Vector2(w, h), 0.45, 0.35, 0.92));
+        composer.addPass(atScale(new POST.UnrealBloomPass(new THREE.Vector2(w, h), 0.45, 0.35, 0.92), g.budget.bloomRes));
       }
       if (g.grade === 'on') {
         this.gradePass = new POST.ShaderPass(GradeShader);

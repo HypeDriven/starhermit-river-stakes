@@ -150,6 +150,7 @@ async function graphicsSettings(page, name) {
   let st = await gfxState(page);
   if (st.preset !== 'low' || st.canvas !== 'low') throw new Error(`Low preset not applied: ${JSON.stringify(st)}`);
   if (!/no shadows/.test(st.summary)) throw new Error(`Low summary unexpected: "${st.summary}"`);
+  if (!/ · Level 0 · /.test(st.summary)) throw new Error(`summary lacks the hardware level: "${st.summary}"`);
   await page.selectOption('#gfx-preset', 'high');
   st = await gfxState(page);
   if (st.preset !== 'high' || st.canvas !== 'high') throw new Error(`High preset not applied: ${JSON.stringify(st)}`);

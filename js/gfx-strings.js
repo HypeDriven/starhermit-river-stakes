@@ -23,6 +23,7 @@ const EN_US = {
   postUnavailable: 'Post-processing is unavailable on this device, so the table renders without it.',
   no3d: '3D view unavailable — the table is shown without it.',
   unknownGpu: 'unknown GPU',
+  level: 'Level {n}',
   describe: {
     noShadows: 'no shadows', shadows: '{n}² shadows', ao: 'ambient occlusion',
     aoHigh: 'full ambient occlusion', bloom: 'bloom', noAa: 'no anti-aliasing', px: '{w}×{h} px',
@@ -56,6 +57,7 @@ const ES_419 = {
   postUnavailable: 'El posprocesamiento no está disponible en este dispositivo; la mesa se muestra sin él.',
   no3d: 'Vista 3D no disponible: la mesa se muestra sin ella.',
   unknownGpu: 'GPU desconocida',
+  level: 'Nivel {n}',
   describe: {
     noShadows: 'sin sombras', shadows: 'sombras {n}²', ao: 'oclusión ambiental',
     aoHigh: 'oclusión ambiental completa', bloom: 'resplandor', noAa: 'sin antialiasing', px: '{w}×{h} px',
@@ -92,6 +94,7 @@ const DE = {
   postUnavailable: 'Nachbearbeitung ist auf diesem Gerät nicht verfügbar; der Tisch wird ohne sie dargestellt.',
   no3d: '3D-Ansicht nicht verfügbar – der Tisch wird ohne sie angezeigt.',
   unknownGpu: 'unbekannte GPU',
+  level: 'Stufe {n}',
   describe: {
     noShadows: 'keine Schatten', shadows: '{n}²-Schatten', ao: 'Umgebungsverdeckung',
     aoHigh: 'volle Umgebungsverdeckung', bloom: 'Bloom', noAa: 'keine Kantenglättung', px: '{w}×{h} px',
@@ -119,6 +122,7 @@ const FR = {
   postUnavailable: 'Le post-traitement n’est pas disponible sur cet appareil ; la table s’affiche sans lui.',
   no3d: 'Vue 3D indisponible : la table s’affiche sans elle.',
   unknownGpu: 'GPU inconnu',
+  level: 'Niveau {n}',
   describe: {
     noShadows: 'sans ombres', shadows: 'ombres {n}²', ao: 'occlusion ambiante',
     aoHigh: 'occlusion ambiante complète', bloom: 'halo', noAa: 'sans anticrénelage', px: '{w}×{h} px',
@@ -152,6 +156,7 @@ const PT_BR = {
   postUnavailable: 'O pós-processamento não está disponível neste dispositivo; a mesa é exibida sem ele.',
   no3d: 'Visão 3D indisponível: a mesa é exibida sem ela.',
   unknownGpu: 'GPU desconhecida',
+  level: 'Nível {n}',
   describe: {
     noShadows: 'sem sombras', shadows: 'sombras {n}²', ao: 'oclusão ambiente',
     aoHigh: 'oclusão ambiente completa', bloom: 'brilho', noAa: 'sem antisserrilhado', px: '{w}×{h} px',
@@ -179,6 +184,7 @@ const IT = {
   postUnavailable: 'La post-elaborazione non è disponibile su questo dispositivo; il tavolo viene mostrato senza.',
   no3d: 'Vista 3D non disponibile: il tavolo viene mostrato senza.',
   unknownGpu: 'GPU sconosciuta',
+  level: 'Livello {n}',
   describe: {
     noShadows: 'nessuna ombra', shadows: 'ombre {n}²', ao: 'occlusione ambientale',
     aoHigh: 'occlusione ambientale completa', bloom: 'bagliore', noAa: 'nessun anti-aliasing', px: '{w}×{h} px',
