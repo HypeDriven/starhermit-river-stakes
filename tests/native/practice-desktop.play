@@ -1,0 +1,44 @@
+# A six-seat Practice table on a desktop by keys: set up, seated, paused and resumed by Escape, the hint (H),
+# then played out (S skips the AI's turns, C checks or calls) to the results; Retry seats a new table.
+# viewport 1600x900@1
+until 600 =Daily challenge
+frames 60
+save p-title
+click =Play
+until 300 Choose your table
+frames 10
+save p-modes
+click Play Practice
+until 300 Take your seat
+frames 10
+click =4 seats
+frames 10
+click =6 seats
+frames 10
+save p-setup
+click =Take your seat
+until 600 Table status
+until 900 =Fold
+frames 60
+save p-table
+key KeyH 1
+frames 10
+save p-hint
+key Escape 1
+until 300 Resume
+frames 20
+save p-pause
+key Escape 1
+frames 30
+repeat 4000 until Breakdown
+  key KeyS 1
+  frames 3
+  key KeyC 1
+  frames 3
+end
+frames 60
+save p-results
+expect Practice is unranked
+click =Retry
+until 600 Table status
+frames 30

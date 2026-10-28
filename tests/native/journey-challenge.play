@@ -1,0 +1,45 @@
+# Journey stage 1 by keys on a desktop to its results, then the Twenty Moves challenge (the action limit plays
+# the safest move once used up) to its results.
+# viewport 1280x800@1
+until 600 =Daily challenge
+frames 60
+click =Journey
+until 300 Journey upriver
+frames 10
+click First Stake —
+until 600 Table status
+frames 30
+repeat 4000 until Breakdown
+  key KeyS 1
+  frames 3
+  key KeyC 1
+  frames 3
+end
+frames 60
+save j-results
+expect goals passed
+click =Back to title
+until 300 =Daily challenge
+frames 10
+click =Play
+until 300 Choose your table
+frames 10
+click Play Challenge
+until 300 Take your seat
+frames 10
+click =Take your seat
+until 300 Constrained tables
+frames 10
+click Play Twenty Moves
+until 600 Actions left
+frames 30
+save c-table
+repeat 4000 until Breakdown
+  key KeyS 1
+  frames 3
+  key KeyC 1
+  frames 3
+end
+frames 60
+save c-results
+expect Challenge

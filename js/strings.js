@@ -10,9 +10,7 @@
   'use strict';
   var ROWS = [
     // ---- controller messages, objectives, progress
-    ['3D view unavailable; using the accessible table view.', 'Vista 3D no disponible; se usa la vista de mesa accesible.', '3D-Ansicht nicht verfügbar; die barrierefreie Tischansicht wird verwendet.', 'Vue 3D indisponible ; la vue de table accessible est utilisée.', 'Visão 3D indisponível; usando a visão de mesa acessível.', 'Vista 3D non disponibile; viene usata la vista accessibile del tavolo.'],
     ['Win the table — practice match, unranked.', 'Gana la mesa: partida de práctica, sin clasificación.', 'Gewinne den Tisch – Trainingspartie, ungewertet.', 'Gagnez la table — partie d’entraînement, non classée.', 'Vença a mesa — partida de treino, sem ranking.', 'Vinci il tavolo: partita di allenamento, non classificata.'],
-    ['Daily challenge is still loading.', 'El desafío diario aún se está cargando.', 'Die tägliche Herausforderung wird noch geladen.', 'Le défi du jour est encore en chargement.', 'O desafio diário ainda está carregando.', 'La sfida giornaliera si sta ancora caricando.'],
     ['Daily challenge for {date} — everyone plays this exact deal today.', 'Desafío diario del {date}: hoy todos juegan exactamente este reparto.', 'Tägliche Herausforderung für {date} – heute spielen alle genau diese Verteilung.', 'Défi du jour du {date} — tout le monde joue exactement cette donne aujourd’hui.', 'Desafio diário de {date} — hoje todos jogam exatamente esta distribuição.', 'Sfida giornaliera del {date}: oggi tutti giocano esattamente questa smazzata.'],
     ['Time expired — the clock beat you this run.', 'Se acabó el tiempo: esta vez ganó el reloj.', 'Zeit abgelaufen – diesmal hat die Uhr gewonnen.', 'Temps écoulé — le chrono l’a emporté cette fois.', 'Tempo esgotado — desta vez o relógio venceu.', 'Tempo scaduto: stavolta ha vinto l’orologio.'],
     ['Hand {n} of {total}', 'Mano {n} de {total}', 'Hand {n} von {total}', 'Main {n} sur {total}', 'Mão {n} de {total}', 'Mano {n} di {total}'],
@@ -73,7 +71,6 @@
     ['Theme: {name}.', 'Tema: {name}.', 'Thema: {name}.', 'Thème : {name}.', 'Tema: {name}.', 'Tema: {name}.'],
     ['Your table name comes from your StarHermit account.', 'Tu nombre en la mesa viene de tu cuenta de StarHermit.', 'Dein Tischname stammt aus deinem StarHermit-Konto.', 'Votre nom à la table provient de votre compte StarHermit.', 'Seu nome na mesa vem da sua conta StarHermit.', 'Il tuo nome al tavolo proviene dal tuo account StarHermit.'],
     ['Profile saved.', 'Perfil guardado.', 'Profil gespeichert.', 'Profil enregistré.', 'Perfil salvo.', 'Profilo salvato.'],
-    ['River Stakes failed to start: {reason}', 'River Stakes no pudo iniciarse: {reason}', 'River Stakes konnte nicht starten: {reason}', 'River Stakes n’a pas pu démarrer : {reason}', 'River Stakes não conseguiu iniciar: {reason}', 'River Stakes non è riuscito ad avviarsi: {reason}'],
     ['Ready', 'Listo', 'Bereit', 'Prêt', 'Pronto', 'Pronto'],
     ['Preflop', 'Preflop', 'Preflop', 'Préflop', 'Pré-flop', 'Preflop'],
     ['Flop', 'Flop', 'Flop', 'Flop', 'Flop', 'Flop'],
@@ -100,7 +97,6 @@
     ['Hint', 'Pista', 'Tipp', 'Indice', 'Dica', 'Indizio'],
     ['Move between action buttons', 'Moverse entre los botones de acción', 'Zwischen Aktionstasten wechseln', 'Passer d’un bouton d’action à l’autre', 'Mover entre os botões de ação', 'Spostarsi tra i pulsanti di azione'],
     ['Skip ahead to your next decision', 'Saltar a tu próxima decisión', 'Zu deiner nächsten Entscheidung springen', 'Passer à votre prochaine décision', 'Pular para sua próxima decisão', 'Salta alla prossima decisione'],
-    ['Lesson {n}', 'Lección {n}', 'Lektion {n}', 'Leçon {n}', 'Lição {n}', 'Lezione {n}'],
     ['Player', 'Jugador', 'Spieler', 'Joueur', 'Jogador', 'Giocatore'],
     ['Theme', 'Tema', 'Thema', 'Thème', 'Tema', 'Tema'],
     ['{rank} of {suit}', '{rank} de {suit}', '{rank} {suit}', '{rank} de {suit}', '{rank} de {suit}', '{rank} di {suit}'],
@@ -160,26 +156,15 @@
     ['A riverside card salon. Fixed-limit Hold’em, played for pride alone.', 'Un salón de cartas junto al río. Hold’em de límite fijo, solo por orgullo.', 'Ein Kartensalon am Fluss. Fixed-Limit-Hold’em, nur um die Ehre.', 'Un salon de cartes au bord de la rivière. Hold’em à limite fixe, pour la seule gloire.', 'Um salão de cartas à beira do rio. Hold’em de limite fixo, só pelo orgulho.', 'Un salotto di carte sul fiume. Hold’em a limite fisso, solo per l’onore.'],
     ['Back', 'Volver', 'Zurück', 'Retour', 'Voltar', 'Indietro'],
     ['Close', 'Cerrar', 'Schließen', 'Fermer', 'Fechar', 'Chiudi'],
-    ['Cancel', 'Cancelar', 'Abbrechen', 'Annuler', 'Cancelar', 'Annulla'],
-    ['Confirm', 'Confirmar', 'Bestätigen', 'Confirmer', 'Confirmar', 'Conferma'],
-    ['Start', 'Empezar', 'Starten', 'Commencer', 'Começar', 'Inizia'],
     ['Play', 'Jugar', 'Spielen', 'Jouer', 'Jogar', 'Gioca'],
     ['Retry', 'Reintentar', 'Nochmal', 'Réessayer', 'Tentar de novo', 'Riprova'],
     ['Next', 'Siguiente', 'Weiter', 'Suivant', 'Próximo', 'Avanti'],
-    ['Leave', 'Salir', 'Verlassen', 'Quitter', 'Sair', 'Esci'],
-    ['Save', 'Guardar', 'Speichern', 'Enregistrer', 'Salvar', 'Salva'],
-    ['On', 'Sí', 'An', 'Activé', 'Ligado', 'Sì'],
-    ['Off', 'No', 'Aus', 'Désactivé', 'Desligado', 'No'],
-    ['Yes', 'Sí', 'Ja', 'Oui', 'Sim', 'Sì'],
-    ['No', 'No', 'Nein', 'Non', 'Não', 'No'],
-    ['Loading…', 'Cargando…', 'Wird geladen …', 'Chargement…', 'Carregando…', 'Caricamento…'],
     ['You', 'Tú', 'Du', 'Vous', 'Você', 'Tu'],
     ['Ranked', 'Clasificatorio', 'Gewertet', 'Classé', 'Ranqueado', 'Classificato'],
     ['Unranked', 'Sin clasificación', 'Ungewertet', 'Non classé', 'Sem ranking', 'Non classificato'],
     ['Locked', 'Bloqueado', 'Gesperrt', 'Verrouillé', 'Bloqueado', 'Bloccato'],
     ['Available', 'Disponible', 'Verfügbar', 'Disponible', 'Disponível', 'Disponibile'],
     ['Completed', 'Completado', 'Geschafft', 'Terminé', 'Concluído', 'Completato'],
-    ['{n} of 3 stars', '{n} de 3 estrellas', '{n} von 3 Sternen', '{n} étoiles sur 3', '{n} de 3 estrelas', '{n} stelle su 3'],
     ['Mastery', 'Maestría', 'Meisterprüfung', 'Maîtrise', 'Maestria', 'Maestria'],
     ['Daily challenge', 'Desafío diario', 'Tägliche Herausforderung', 'Défi du jour', 'Desafio diário', 'Sfida giornaliera'],
     ['Profile', 'Perfil', 'Profil', 'Profil', 'Perfil', 'Profilo'],
@@ -188,7 +173,6 @@
     ['Pull up a chair by the river.', 'Acerca una silla junto al río.', 'Zieh dir einen Stuhl am Fluss heran.', 'Approchez une chaise au bord de la rivière.', 'Puxe uma cadeira à beira do rio.', 'Prendi una sedia in riva al fiume.'],
     ['Choose your table', 'Elige tu mesa', 'Wähle deinen Tisch', 'Choisissez votre table', 'Escolha sua mesa', 'Scegli il tuo tavolo'],
     ['Every mode uses fixed-limit betting: bets and raises are set amounts, so the math stays readable.', 'Todos los modos usan apuestas de límite fijo: apuestas y subidas tienen cantidades fijas, así las cuentas son claras.', 'Jeder Modus nutzt Fixed-Limit-Einsätze: Einsätze und Erhöhungen haben feste Beträge, so bleibt die Rechnung übersichtlich.', 'Tous les modes utilisent des mises à limite fixe : mises et relances ont des montants fixes, les calculs restent lisibles.', 'Todos os modos usam apostas de limite fixo: apostas e aumentos têm valores fixos, então as contas ficam claras.', 'Tutte le modalità usano puntate a limite fisso: puntate e rilanci hanno importi fissi, così i conti restano chiari.'],
-    ['You can review the setup on the next screen before anything starts.', 'Puedes revisar la configuración en la siguiente pantalla antes de empezar.', 'Auf dem nächsten Bildschirm kannst du alles prüfen, bevor es losgeht.', 'Vous pourrez vérifier les réglages à l’écran suivant avant que tout commence.', 'Você pode revisar a configuração na próxima tela antes de começar.', 'Puoi controllare la configurazione nella schermata successiva prima di iniziare.'],
     ['Guided lessons that teach one rule at a time and make you perform it.', 'Lecciones guiadas que enseñan una regla a la vez y te la hacen practicar.', 'Geführte Lektionen, die eine Regel nach der anderen erklären und dich sie ausführen lassen.', 'Des leçons guidées qui enseignent une règle à la fois et vous la font appliquer.', 'Lições guiadas que ensinam uma regra por vez e fazem você praticá-la.', 'Lezioni guidate che insegnano una regola alla volta e te la fanno applicare.'],
     ['5–10 min', '5–10 min', '5–10 Min.', '5–10 min', '5–10 min', '5–10 min'],
     ['1 player + tutor', '1 jugador + tutor', '1 Spieler + Tutor', '1 joueur + tuteur', '1 jogador + tutor', '1 giocatore + tutor'],
@@ -217,7 +201,6 @@
     ['This result is not ranked.', 'Este resultado no cuenta para la clasificación.', 'Dieses Ergebnis wird nicht gewertet.', 'Ce résultat n’est pas classé.', 'Este resultado não vale para o ranking.', 'Questo risultato non è classificato.'],
     ['Take your seat', 'Toma asiento', 'Nimm Platz', 'Prenez place', 'Sente-se', 'Siediti'],
     ['Lessons', 'Lecciones', 'Lektionen', 'Leçons', 'Lições', 'Lezioni'],
-    ['Start lesson', 'Empezar lección', 'Lektion starten', 'Commencer la leçon', 'Começar lição', 'Inizia la lezione'],
 
     // ---- UI STRINGS: game HUD
     ['Objective', 'Objetivo', 'Ziel', 'Objectif', 'Objetivo', 'Obiettivo'],
@@ -230,7 +213,6 @@
     ['Action', 'Acción', 'Aktion', 'Action', 'Ação', 'Azione'],
     ['Your turn', 'Tu turno', 'Du bist dran', 'À vous', 'Sua vez', 'Tocca a te'],
     ['Waiting for {name}', 'Esperando a {name}', 'Warte auf {name}', 'En attente de {name}', 'Esperando {name}', 'In attesa di {name}'],
-    ['Actions', 'Acciones', 'Aktionen', 'Actions', 'Ações', 'Azioni'],
     ['Check', 'Pasar', 'Checken', 'Checker', 'Passar', 'Check'],
     ['Call {amount}', 'Igualar {amount}', 'Mitgehen {amount}', 'Suivre {amount}', 'Pagar {amount}', 'Vedi {amount}'],
     ['Bet {amount}', 'Apostar {amount}', 'Setzen {amount}', 'Miser {amount}', 'Apostar {amount}', 'Punta {amount}'],
@@ -247,29 +229,20 @@
     ['Dealer', 'Repartidor', 'Geber', 'Donneur', 'Dealer', 'Mazziere'],
     ['Folded', 'Retirado', 'Gefoldet', 'Couché', 'Desistiu', 'Ha lasciato'],
     ['Out', 'Eliminado', 'Raus', 'Éliminé', 'Fora', 'Fuori'],
-    ['Acting', 'Actuando', 'Am Zug', 'En jeu', 'Agindo', 'Di turno'],
     ['{name}: {action}', '{name}: {action}', '{name}: {action}', '{name} : {action}', '{name}: {action}', '{name}: {action}'],
     ['Shortcuts', 'Atajos', 'Tastenkürzel', 'Raccourcis', 'Atalhos', 'Scorciatoie'],
     ['Hide shortcuts', 'Ocultar atajos', 'Kürzel ausblenden', 'Masquer les raccourcis', 'Ocultar atalhos', 'Nascondi scorciatoie'],
-    ['Community cards', 'Cartas comunitarias', 'Gemeinschaftskarten', 'Cartes communes', 'Cartas comunitárias', 'Carte comuni'],
-    ['Your cards', 'Tus cartas', 'Deine Karten', 'Vos cartes', 'Suas cartas', 'Le tue carte'],
     ['Face-down cards', 'Cartas boca abajo', 'Verdeckte Karten', 'Cartes face cachée', 'Cartas viradas para baixo', 'Carte coperte'],
 
     // ---- UI STRINGS: results, journey, challenges, achievements
-    ['Hand results', 'Resultados de la mano', 'Ergebnis der Hand', 'Résultats de la main', 'Resultados da mão', 'Risultati della mano'],
     ['Breakdown', 'Desglose', 'Aufschlüsselung', 'Détail', 'Detalhamento', 'Dettaglio'],
     ['Achievements unlocked', 'Logros desbloqueados', 'Freigeschaltete Erfolge', 'Succès débloqués', 'Conquistas desbloqueadas', 'Obiettivi sbloccati'],
-    ['Comparison', 'Comparación', 'Vergleich', 'Comparaison', 'Comparação', 'Confronto'],
     ['Recommended next', 'Siguiente recomendado', 'Empfehlung', 'À faire ensuite', 'Próximo recomendado', 'Consigliato'],
     ['Back to title', 'Volver al título', 'Zum Titelbildschirm', 'Retour à l’écran titre', 'Voltar ao título', 'Torna al titolo'],
     ['Stars earned: {n}', 'Estrellas ganadas: {n}', 'Verdiente Sterne: {n}', 'Étoiles gagnées : {n}', 'Estrelas ganhas: {n}', 'Stelle guadagnate: {n}'],
     ['{passed} of {total} goals passed', '{passed} de {total} objetivos cumplidos', '{passed} von {total} Zielen erreicht', '{passed} objectifs atteints sur {total}', '{passed} de {total} metas cumpridas', '{passed} obiettivi su {total} raggiunti'],
     ['Journey upriver', 'Travesía río arriba', 'Reise flussaufwärts', 'Voyage en amont', 'Jornada rio acima', 'Viaggio controcorrente'],
     ['Complete stages to open the next reach of the river. Every fifth stage is a mastery test.', 'Completa etapas para abrir el siguiente tramo del río. Cada quinta etapa es una prueba de maestría.', 'Schaffe Etappen, um den nächsten Flussabschnitt zu öffnen. Jede fünfte Etappe ist eine Meisterprüfung.', 'Terminez des étapes pour ouvrir le tronçon suivant de la rivière. Une étape sur cinq est une épreuve de maîtrise.', 'Conclua etapas para abrir o próximo trecho do rio. Cada quinta etapa é uma prova de maestria.', 'Completa le tappe per aprire il tratto successivo del fiume. Ogni quinta tappa è una prova di maestria.'],
-    ['Par {n} hands', 'Par de {n} manos', 'Par {n} Hände', 'Par de {n} mains', 'Par de {n} mãos', 'Par {n} mani'],
-    ['Mastery stage', 'Etapa de maestría', 'Meisteretappe', 'Étape de maîtrise', 'Etapa de maestria', 'Tappa di maestria'],
-    ['Locked — finish earlier stages first', 'Bloqueada: termina antes las etapas anteriores', 'Gesperrt – schaff zuerst die früheren Etappen', 'Verrouillée — terminez d’abord les étapes précédentes', 'Bloqueada — conclua antes as etapas anteriores', 'Bloccata: completa prima le tappe precedenti'],
-    ['Teaches: {topic}', 'Enseña: {topic}', 'Thema: {topic}', 'Enseigne : {topic}', 'Ensina: {topic}', 'Insegna: {topic}'],
     ['{n} stars', '{n} estrellas', '{n} Sterne', '{n} étoiles', '{n} estrelas', '{n} stelle'],
     ['Challenges', 'Desafíos', 'Herausforderungen', 'Défis', 'Desafios', 'Sfide'],
     ['Constrained tables with their own goals and leaderboard entries.', 'Mesas con restricciones, con sus propios objetivos y registros.', 'Tische mit Vorgaben, eigenen Zielen und Bestenlisteneinträgen.', 'Des tables contraintes avec leurs propres objectifs et entrées de classement.', 'Mesas com restrições, metas próprias e registros no ranking.', 'Tavoli vincolati con obiettivi e voci di classifica propri.'],
@@ -282,37 +255,17 @@
     ['Not yet unlocked', 'Aún no desbloqueado', 'Noch nicht freigeschaltet', 'Pas encore débloqué', 'Ainda não desbloqueada', 'Non ancora sbloccato'],
 
     // ---- UI STRINGS: settings
-    ['Audio', 'Audio', 'Audio', 'Audio', 'Áudio', 'Audio'],
-    ['Master volume', 'Volumen general', 'Gesamtlautstärke', 'Volume général', 'Volume geral', 'Volume generale'],
-    ['Music volume', 'Volumen de la música', 'Musiklautstärke', 'Volume de la musique', 'Volume da música', 'Volume della musica'],
-    ['Effects volume', 'Volumen de efectos', 'Effektlautstärke', 'Volume des effets', 'Volume dos efeitos', 'Volume degli effetti'],
-    ['Ambience volume', 'Volumen de ambiente', 'Atmosphärenlautstärke', 'Volume de l’ambiance', 'Volume do ambiente', 'Volume dell’ambiente'],
-    ['Voice volume', 'Volumen de voz', 'Stimmlautstärke', 'Volume des voix', 'Volume da voz', 'Volume della voce'],
-    ['Mute all audio', 'Silenciar todo el audio', 'Gesamten Ton stummschalten', 'Couper tout le son', 'Silenciar todo o áudio', 'Disattiva tutto l’audio'],
-    ['Graphics', 'Gráficos', 'Grafik', 'Graphismes', 'Gráficos', 'Grafica'],
-    ['Quality tier', 'Nivel de calidad', 'Qualitätsstufe', 'Niveau de qualité', 'Nível de qualidade', 'Livello di qualità'],
-    ['Low', 'Baja', 'Niedrig', 'Basse', 'Baixa', 'Bassa'],
-    ['Medium', 'Media', 'Mittel', 'Moyenne', 'Média', 'Media'],
-    ['High', 'Alta', 'Hoch', 'Élevée', 'Alta', 'Alta'],
     ['Accessibility', 'Accesibilidad', 'Barrierefreiheit', 'Accessibilité', 'Acessibilidade', 'Accessibilità'],
-    ['Reduced motion', 'Movimiento reducido', 'Weniger Bewegung', 'Animations réduites', 'Movimento reduzido', 'Movimento ridotto'],
-    ['High contrast', 'Alto contraste', 'Hoher Kontrast', 'Contraste élevé', 'Alto contraste', 'Contrasto elevato'],
     ['Color palette', 'Paleta de colores', 'Farbpalette', 'Palette de couleurs', 'Paleta de cores', 'Tavolozza dei colori'],
     ['Default', 'Predeterminada', 'Standard', 'Par défaut', 'Padrão', 'Predefinita'],
     ['Deuteranopia-safe', 'Apta para deuteranopía', 'Für Deuteranopie', 'Adaptée à la deutéranopie', 'Adequada a deuteranopia', 'Adatta alla deuteranopia'],
     ['Tritanopia-safe', 'Apta para tritanopía', 'Für Tritanopie', 'Adaptée à la tritanopie', 'Adequada a tritanopia', 'Adatta alla tritanopia'],
-    ['Text size', 'Tamaño del texto', 'Textgröße', 'Taille du texte', 'Tamanho do texto', 'Dimensione del testo'],
-    ['Normal', 'Normal', 'Normal', 'Normale', 'Normal', 'Normale'],
-    ['Large', 'Grande', 'Groß', 'Grande', 'Grande', 'Grande'],
-    ['Extra large', 'Muy grande', 'Sehr groß', 'Très grande', 'Muito grande', 'Molto grande'],
     ['Left-handed action tray', 'Barra de acciones para zurdos', 'Aktionsleiste für Linkshänder', 'Barre d’actions pour gauchers', 'Barra de ações para canhotos', 'Barra azioni per mancini'],
     ['Hint button behavior', 'Comportamiento del botón de pista', 'Verhalten der Tipp-Taste', 'Comportement du bouton d’indice', 'Comportamento do botão de dica', 'Comportamento del pulsante indizio'],
     ['Tap to toggle', 'Tocar para alternar', 'Tippen zum Umschalten', 'Toucher pour basculer', 'Tocar para alternar', 'Tocca per alternare'],
     ['Hold to peek', 'Mantener para ver', 'Halten zum Ansehen', 'Maintenir pour voir', 'Segurar para ver', 'Tieni premuto per vedere'],
-    ['Haptic feedback', 'Vibración', 'Haptisches Feedback', 'Retour haptique', 'Vibração', 'Feedback aptico'],
     ['Replay tutorial', 'Repetir tutorial', 'Tutorial wiederholen', 'Revoir le tutoriel', 'Repetir tutorial', 'Ripeti il tutorial'],
     ['Start the first lesson again from the beginning.', 'Empieza de nuevo la primera lección desde el principio.', 'Starte die erste Lektion noch einmal von vorn.', 'Recommencez la première leçon depuis le début.', 'Comece a primeira lição de novo desde o início.', 'Ricomincia la prima lezione dall’inizio.'],
-    ['Settings saved.', 'Configuración guardada.', 'Einstellungen gespeichert.', 'Paramètres enregistrés.', 'Configurações salvas.', 'Impostazioni salvate.'],
 
     // ---- UI STRINGS: help
     ['Each hand, the two players left of the dealer post forced bets: the small blind and the big blind. This seeds the pot so every hand matters. Heads-up, the dealer posts the small blind and acts first before the flop.', 'En cada mano, los dos jugadores a la izquierda del repartidor ponen apuestas obligatorias: la ciega pequeña y la grande. Así el bote nunca está vacío y cada mano importa. En mano a mano, el repartidor pone la ciega pequeña y actúa primero antes del flop.', 'In jeder Hand setzen die zwei Spieler links vom Geber Pflichteinsätze: Small Blind und Big Blind. So ist der Pot nie leer und jede Hand zählt. Heads-up setzt der Geber den Small Blind und handelt vor dem Flop zuerst.', 'À chaque main, les deux joueurs à gauche du donneur posent des mises forcées : la petite et la grosse blind. Le pot n’est jamais vide et chaque main compte. En tête-à-tête, le donneur pose la petite blind et parle en premier avant le flop.', 'A cada mão, os dois jogadores à esquerda do dealer colocam apostas obrigatórias: o small blind e o big blind. Assim o pote nunca fica vazio e toda mão importa. No heads-up, o dealer coloca o small blind e age primeiro antes do flop.', 'A ogni mano, i due giocatori alla sinistra del mazziere mettono puntate obbligatorie: il piccolo e il grande buio. Così il piatto non è mai vuoto e ogni mano conta. In testa a testa, il mazziere mette il piccolo buio e parla per primo prima del flop.'],
@@ -352,7 +305,6 @@
     ['Best hand', 'Mejor mano', 'Beste Hand', 'Meilleure main', 'Melhor mão', 'Mano migliore'],
     ['Journey stages cleared', 'Etapas de la travesía superadas', 'Geschaffte Reiseetappen', 'Étapes du voyage réussies', 'Etapas da jornada concluídas', 'Tappe del viaggio superate'],
     ['Dailies played', 'Desafíos diarios jugados', 'Gespielte Tagesrunden', 'Défis du jour joués', 'Desafios diários jogados', 'Sfide giornaliere giocate'],
-    ['No stats yet — play a few hands first.', 'Aún no hay estadísticas: juega unas manos primero.', 'Noch keine Statistik – spiel zuerst ein paar Hände.', 'Pas encore de statistiques — jouez d’abord quelques mains.', 'Ainda sem estatísticas — jogue algumas mãos primeiro.', 'Ancora nessuna statistica: gioca prima qualche mano.'],
     ['Table for {date}', 'Mesa del {date}', 'Tisch für {date}', 'Table du {date}', 'Mesa de {date}', 'Tavolo del {date}'],
     ['Seed {seed} — identical cards for every player today.', 'Semilla {seed}: cartas idénticas para todos hoy.', 'Seed {seed} – heute gleiche Karten für alle.', 'Graine {seed} — cartes identiques pour tous aujourd’hui.', 'Semente {seed} — cartas idênticas para todos hoje.', 'Seme {seed}: oggi carte identiche per tutti.'],
     ['Par: {n} hands', 'Par: {n} manos', 'Par: {n} Hände', 'Par : {n} mains', 'Par: {n} mãos', 'Par: {n} mani'],
@@ -360,8 +312,6 @@
     ['Play today’s table', 'Jugar la mesa de hoy', 'Heutigen Tisch spielen', 'Jouer la table du jour', 'Jogar a mesa de hoje', 'Gioca il tavolo di oggi'],
     ['One shared deal per day — your best result is recorded on your profile.', 'Un reparto compartido por día: tu mejor resultado se guarda en tu perfil.', 'Eine gemeinsame Verteilung pro Tag – dein bestes Ergebnis steht in deinem Profil.', 'Une donne commune par jour — votre meilleur résultat est enregistré dans votre profil.', 'Uma distribuição compartilhada por dia — seu melhor resultado fica no seu perfil.', 'Una smazzata condivisa al giorno: il tuo miglior risultato resta nel profilo.'],
     ['River-wide standings', 'Clasificación de todo el río', 'Rangliste am ganzen Fluss', 'Classement de toute la rivière', 'Classificação de todo o rio', 'Classifica di tutto il fiume'],
-    ['Loading standings…', 'Cargando clasificación…', 'Rangliste wird geladen …', 'Chargement du classement…', 'Carregando classificação…', 'Caricamento della classifica…'],
-    ['No standings available yet.', 'Aún no hay clasificación disponible.', 'Noch keine Rangliste verfügbar.', 'Aucun classement disponible pour l’instant.', 'Ainda não há classificação disponível.', 'Nessuna classifica ancora disponibile.'],
     ['Paused', 'En pausa', 'Pausiert', 'En pause', 'Pausado', 'In pausa'],
     ['Resume', 'Reanudar', 'Weiter', 'Reprendre', 'Continuar', 'Riprendi'],
     ['Leave table', 'Dejar la mesa', 'Tisch verlassen', 'Quitter la table', 'Sair da mesa', 'Lascia il tavolo'],
@@ -412,7 +362,6 @@
     ['Card face down', 'Carta boca abajo', 'Verdeckte Karte', 'Carte face cachée', 'Carta virada para baixo', 'Carta coperta'],
     ['{screen} screen', 'Pantalla {screen}', 'Bildschirm {screen}', 'Écran {screen}', 'Tela {screen}', 'Schermata {screen}'],
     ['{action} sent.', '{action}: enviado.', '{action} gesendet.', '{action} : envoyé.', '{action}: enviado.', '{action}: inviato.'],
-    ['That action is not available right now.', 'Esa acción no está disponible ahora.', 'Diese Aktion ist gerade nicht verfügbar.', 'Cette action n’est pas disponible pour l’instant.', 'Essa ação não está disponível agora.', 'Questa azione non è disponibile ora.'],
     ['Hint: {text}', 'Pista: {text}', 'Tipp: {text}', 'Indice : {text}', 'Dica: {text}', 'Indizio: {text}'],
 
     // ---- content: journey stages
@@ -558,7 +507,17 @@
     ['Emberdusk', 'Ocaso de brasas', 'Glutdämmerung', 'Crépuscule de braises', 'Crepúsculo de brasas', 'Crepuscolo di brace'],
     ['Noir Tide', 'Marea noir', 'Schwarze Flut', 'Marée noire', 'Maré noir', 'Marea noir'],
     ['Willowbank', 'Orilla de sauces', 'Weidenufer', 'Rive des saules', 'Margem dos salgueiros', 'Riva dei salici'],
-    ['Regatta', 'Regata', 'Regatta', 'Régate', 'Regata', 'Regata']
+    ['Regatta', 'Regata', 'Regatta', 'Régate', 'Regata', 'Regata'],
+    // ---- engine client
+    ["Close panel","Cerrar panel","Bereich schließen","Fermer le panneau","Fechar painel","Chiudi pannello"],
+    ["Key bindings","Asignación de teclas","Tastenbelegung","Affectation des touches","Mapeamento de teclas","Assegnazione tasti"],
+    ["Lower the bet","Bajar la apuesta","Einsatz senken","Baisser la mise","Diminuir a aposta","Abbassa la puntata"],
+    ["Raise the bet","Subir la apuesta","Einsatz erhöhen","Augmenter la mise","Aumentar a aposta","Alza la puntata"],
+    ["Open Options","Abrir opciones","Optionen öffnen","Ouvrir les options","Abrir opções","Apri opzioni"],
+    ["Progress restored from your StarHermit cloud save.","Progreso restaurado desde tu guardado en la nube de StarHermit.","Fortschritt aus deinem StarHermit-Cloud-Spielstand wiederhergestellt.","Progression restaurée depuis votre sauvegarde cloud StarHermit.","Progresso restaurado do seu salvamento na nuvem do StarHermit.","Progressi ripristinati dal tuo salvataggio cloud StarHermit."],
+    ["Sound and graphics","Sonido y gráficos","Ton und Grafik","Son et graphismes","Som e gráficos","Audio e grafica"],
+    ["Volumes, mute, graphics quality, frame rate, language, text size, high contrast and reduced motion are in the StarHermit Options.","El volumen, el silencio, la calidad gráfica, la frecuencia de fotogramas, el idioma, el tamaño del texto, el alto contraste y el movimiento reducido están en las Opciones de StarHermit.","Lautstärke, Stummschaltung, Grafikqualität, Bildrate, Sprache, Textgröße, hoher Kontrast und reduzierte Bewegung findest du in den StarHermit-Optionen.","Volumes, sourdine, qualité graphique, fréquence d’images, langue, taille du texte, contraste élevé et mouvements réduits se trouvent dans les options StarHermit.","Volumes, mudo, qualidade gráfica, taxa de quadros, idioma, tamanho do texto, alto contraste e movimento reduzido ficam nas Opções do StarHermit.","Volumi, silenzioso, qualità grafica, frequenza dei fotogrammi, lingua, dimensione del testo, alto contrasto e movimento ridotto sono nelle Opzioni di StarHermit."],
+    ["Gamepads: the D-pad or left stick moves between buttons and South presses; the shoulder and face buttons take the actions. Rebind keys and pads in the StarHermit Options.","Mandos: la cruceta o el stick izquierdo se mueven entre los botones y Sur pulsa; los botones superiores y frontales realizan las acciones. Reasigna teclas y mandos en las Opciones de StarHermit.","Gamepads: Steuerkreuz oder linker Stick wechseln zwischen den Schaltflächen, Süd drückt; Schulter- und Aktionstasten lösen die Aktionen aus. Tasten und Pads belegst du in den StarHermit-Optionen neu.","Manettes : la croix directionnelle ou le stick gauche passent d’un bouton à l’autre et Sud appuie ; les gâchettes et les boutons de façade lancent les actions. Réaffectez touches et manettes dans les options StarHermit.","Controles: o direcional ou o analógico esquerdo passam entre os botões e Sul pressiona; os botões de ombro e frontais fazem as ações. Remapeie teclas e controles nas Opções do StarHermit.","Gamepad: la croce direzionale o lo stick sinistro passano tra i pulsanti e Sud preme; i dorsali e i pulsanti frontali eseguono le azioni. Riassegna tasti e controller nelle Opzioni di StarHermit."]
   ];
 
   var COLS = ['es-419', 'de-DE', 'fr-FR', 'pt-BR', 'it-IT'];
@@ -574,7 +533,6 @@
   // es-ES: Spain Spanish wording.
   T['es-ES'] = {
     'Settings': 'Ajustes',
-    'River Stakes failed to start: {reason}': 'River Stakes no ha podido iniciarse: {reason}',
     'Sync failed — it will retry with your next save.': 'Ha fallado la sincronización: se reintentará con el próximo guardado.',
     'You left before finishing every step.': 'Has salido antes de terminar todos los pasos.'
   };
@@ -586,4 +544,4 @@
   };
 
   root.RV_STRINGS = T;
-})(typeof self !== 'undefined' ? self : this);
+})(globalThis);

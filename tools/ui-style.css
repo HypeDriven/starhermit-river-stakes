@@ -1,0 +1,248 @@
+/* River Stakes — the browser build's css/style.css rewritten class-based for
+   the engine's UI (`npm run css` converts it into assets/ui-style.json).
+   Element selectors, [data-theme] / [data-palette] / [data-contrast]
+   attribute blocks and @media do not convert: every widget names its
+   classes, the theme and palette token sets are applied by native/style.ts
+   (ui.setTokens), high contrast is the runtime's option (its token set in
+   native/style.ts), larger text is the runtime's text scale, and the
+   breakpoints are layouts picked in native/hud.ts and native/screens.ts.
+   The values below are the default theme's (Emberdusk). */
+
+:root {
+  --bg: #241d26; --felt: #3f5d52; --felt-deep: #2a4038; --table: #4a3428; --river: #31465e;
+  --accent: #e07b39; --accent-ink: #241a04; --surface: rgba(38, 28, 40, 0.9); --surface-2: rgba(54, 40, 56, 0.94);
+  --ink: #f2e6d8; --ink-dim: #b3a191; --line: rgba(224, 123, 57, 0.35); --danger: #d05b4b; --ok: #58b06c; --warn: #d8a13c;
+  --card-face: #f7f2e6; --card-ink: #1d1a14; --suit-red: #b5343a; --suit-black: #22201c; --danger-ink: #ffd9d2;
+}
+
+* { box-sizing: border-box; }
+
+/* ------------------------------------------------------------- text */
+.text { color: var(--ink); font-size: 16px; }
+.strong { color: var(--ink); font-size: 16px; font-weight: 700; }
+.dim { color: var(--ink-dim); font-size: 16px; }
+.small { color: var(--ink-dim); font-size: 14.4px; }
+.h1 { color: var(--ink); font-size: 30.4px; font-weight: 700; letter-spacing: 0.6px; }
+.h2 { color: var(--accent); font-size: 18.4px; font-weight: 700; }
+.h3 { color: var(--ink); font-size: 18.7px; font-weight: 700; }
+.title-logo { color: var(--accent); font-size: 67.2px; font-weight: 700; text-align: center; }
+.title-kicker { color: var(--river); font-size: 12.8px; letter-spacing: 3.2px; text-transform: uppercase; text-align: center; }
+.title-tag { color: var(--ink-dim); font-size: 16px; text-align: center; }
+.objective-text { color: var(--ink); font-size: 16px; font-weight: 600; }
+.progress-text { color: var(--ink-dim); font-size: 16px; }
+.status-k { color: var(--ink); font-size: 16px; font-weight: 700; }
+.status-v { color: var(--ink); font-size: 16px; }
+.feed-text { color: var(--ink-dim); font-size: 14.1px; }
+.feed-text-last { color: var(--ink); font-size: 14.1px; }
+.kbd-text { color: var(--ink); font-size: 13.1px; }
+.shortcut-desc { color: var(--ink-dim); font-size: 13.1px; }
+.shortcut-title { color: var(--accent); font-size: 15.2px; font-weight: 700; }
+.banner-text { color: var(--ink-dim); font-size: 16px; font-weight: 700; text-align: center; }
+.banner-text-you { color: var(--accent-ink); font-size: 16px; font-weight: 700; text-align: center; }
+.pot-text { color: var(--ink); font-size: 16px; font-weight: 700; }
+.pot-chip { color: var(--accent); font-size: 16px; }
+.seat-name { color: var(--ink); font-size: 14.4px; font-weight: 700; }
+.seat-chips { color: var(--accent); font-size: 14.4px; font-weight: 600; text-align: center; }
+.seat-last { color: var(--ink-dim); font-size: 12.5px; text-align: center; }
+.badge-text { color: var(--ink-dim); font-size: 13.6px; }
+.badge-ranked-text { color: var(--accent); font-size: 13.6px; }
+.badge-ok-text { color: var(--ok); font-size: 13.6px; }
+.badge-mastery-text { color: var(--accent-ink); font-size: 13.6px; }
+.seat-badge-text { color: var(--ink-dim); font-size: 11.5px; }
+.seat-dealer-text { color: var(--accent-ink); font-size: 11.5px; font-weight: 800; }
+.seat-allin-text { color: var(--warn); font-size: 11.5px; }
+.toast-text { color: var(--ink); font-size: 16px; text-align: center; }
+.hint-text { color: var(--ink); font-size: 16px; }
+.raise-label { color: var(--ink-dim); font-size: 13.6px; }
+.raise-value { color: var(--ink); font-size: 16px; font-weight: 700; text-align: end; }
+.stars { color: var(--accent); font-size: 20.8px; letter-spacing: 1.6px; }
+.journey-idx { color: var(--ink-dim); font-size: 12.8px; }
+.journey-name { color: var(--ink); font-size: 16px; font-weight: 700; }
+.journey-stars { color: var(--accent); font-size: 16px; letter-spacing: 1.6px; }
+.journey-lock { color: var(--ink-dim); font-size: 13.6px; }
+.mode-rules { color: var(--ink-dim); font-size: 16px; }
+.mode-meta { color: var(--ink-dim); font-size: 14.4px; }
+.daily-date { color: var(--accent); font-size: 20.8px; }
+.wrap { color: var(--ink); font-size: 16px; font-weight: 600; text-align: center; }
+.wrap-ink { color: var(--accent-ink); font-size: 16px; font-weight: 600; text-align: center; }
+.warn-text { color: var(--warn); font-size: 14.4px; }
+
+/* ------------------------------------------------------------- surfaces */
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px 19px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45); }
+.title-card { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 35px 42px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45); }
+.rail { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+.rail-drawer { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45); }
+.tray { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+.tray-phone { background: var(--surface); border: 1px solid var(--line); border-radius: 14px 14px 0 0; }
+.seat { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+.seat-you { background: var(--surface); border: 1px solid var(--accent); border-radius: 10px; }
+.seat-acting { background: var(--surface); border: 2px solid var(--accent); border-radius: 10px; box-shadow: 0 0 14px var(--accent); }
+.pot-line { background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 5px 18px; }
+.banner { background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 6px 19px; }
+.banner-you { background: var(--accent); border: 1px solid var(--accent); border-radius: 999px; padding: 6px 19px; }
+.toast { background: var(--surface-2); border: 1px solid var(--accent); border-radius: 999px; padding: 6px 19px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45); }
+.app-toast { background: var(--surface-2); border: 1px solid var(--accent); border-radius: 16px; padding: 8px 19px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45); }
+.hint { background: var(--surface-2); border-left: 3px solid var(--accent); border-radius: 6px; padding: 6px 13px; }
+.kbd { background: var(--surface-2); border: 1px solid var(--line); border-radius: 4px; padding: 1px 7px; }
+.badge { border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; }
+.badge-ranked { border: 1px solid var(--accent); border-radius: 999px; padding: 2px 10px; }
+.badge-ok { border: 1px solid var(--ok); border-radius: 999px; padding: 2px 10px; }
+.badge-mastery { background: var(--accent); border-radius: 999px; padding: 2px 10px; }
+.seat-badge { border: 1px solid var(--line); border-radius: 999px; padding: 0 6px; }
+.seat-dealer { background: var(--accent); border-radius: 999px; padding: 0 6px; }
+.seat-allin { border: 1px solid var(--warn); border-radius: 999px; padding: 0 6px; }
+.modal { background: var(--surface-2); border: 1px solid var(--line); border-radius: 14px; padding: 19px 22px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45); }
+.field-group { border: 1px solid var(--line); border-radius: 10px; padding: 10px 16px; }
+.feed-item { border-left: 3px solid var(--line); border-radius: 0; padding: 0 0 0 8px; }
+.feed-item-last { border-left: 3px solid var(--accent); border-radius: 0; padding: 0 0 0 8px; }
+.stat-row { border-bottom: 1px solid var(--line); border-radius: 0; padding: 7px 10px; }
+.mode-card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px 19px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45); }
+.list-card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px 19px; }
+.list-card-on { background: var(--surface); border: 1px solid var(--accent); border-radius: 10px; padding: 16px 19px; }
+.rule-sep { background: var(--line); border-radius: 0; }
+.tray-sep { background: var(--line); border-radius: 0; }
+
+/* ------------------------------------------------------------- buttons */
+.btn {
+  min-height: 44px; min-width: 44px; padding: 8px 18px;
+  background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px;
+  color: var(--ink); font-size: 16px; font-weight: 600; text-align: center;
+}
+.btn:hover { border-color: var(--accent); }
+.btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.btn:disabled { opacity: 0.45; }
+.btn-primary {
+  min-height: 44px; min-width: 44px; padding: 8px 18px;
+  background: var(--accent); border: 1px solid var(--accent); border-radius: 10px;
+  color: var(--accent-ink); font-size: 16px; font-weight: 600; text-align: center;
+}
+.btn-primary:hover { border-color: var(--ink); }
+.btn-primary:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.btn-primary:disabled { opacity: 0.45; }
+.btn-ghost {
+  min-height: 44px; min-width: 44px; padding: 8px 18px;
+  background: transparent; border: 1px solid var(--line); border-radius: 10px;
+  color: var(--ink); font-size: 16px; font-weight: 600; text-align: center;
+}
+.btn-ghost:hover { border-color: var(--accent); }
+.btn-ghost:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.btn-ghost:disabled { opacity: 0.45; }
+.btn-hud {
+  min-height: 44px; min-width: 44px; padding: 8px 18px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+  color: var(--ink); font-size: 16px; font-weight: 600; text-align: center;
+}
+.btn-hud:hover { border-color: var(--accent); }
+.btn-hud:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.btn-danger {
+  min-height: 44px; min-width: 44px; padding: 8px 18px;
+  background: var(--surface-2); border: 1px solid var(--danger); border-radius: 10px;
+  color: var(--danger-ink); font-size: 16px; font-weight: 600; text-align: center;
+}
+.btn-danger:hover { border-color: var(--accent); }
+.btn-danger:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.btn-fold {
+  min-height: 44px; min-width: 88px; padding: 8px 18px;
+  background: var(--surface-2); border: 1px solid var(--danger); border-radius: 10px;
+  color: var(--ink); font-size: 16.8px; font-weight: 600; text-align: center;
+}
+.btn-fold:hover { border-color: var(--accent); }
+.btn-fold:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.btn-fold:disabled { opacity: 0.45; }
+.btn-allin {
+  min-height: 44px; min-width: 88px; padding: 8px 18px;
+  background: var(--surface-2); border: 1px solid var(--warn); border-radius: 10px;
+  color: var(--ink); font-size: 16.8px; font-weight: 600; text-align: center;
+}
+.btn-allin:hover { border-color: var(--accent); }
+.btn-allin:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.btn-allin:disabled { opacity: 0.45; }
+.btn-act {
+  min-height: 44px; min-width: 88px; padding: 8px 18px;
+  background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px;
+  color: var(--ink); font-size: 16.8px; font-weight: 600; text-align: center;
+}
+.btn-act:hover { border-color: var(--accent); }
+.btn-act:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.btn-act:disabled { opacity: 0.45; }
+.btn-act-primary {
+  min-height: 44px; min-width: 88px; padding: 8px 18px;
+  background: var(--accent); border: 1px solid var(--accent); border-radius: 10px;
+  color: var(--accent-ink); font-size: 16.8px; font-weight: 600; text-align: center;
+}
+.btn-act-primary:hover { border-color: var(--ink); }
+.btn-act-primary:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.btn-act-primary:disabled { opacity: 0.45; }
+.btn-xl {
+  min-height: 56px; min-width: 44px; padding: 14px 32px;
+  background: var(--accent); border: 1px solid var(--accent); border-radius: 10px;
+  color: var(--accent-ink); font-size: 20px; font-weight: 600; text-align: center;
+}
+.btn-xl:hover { border-color: var(--ink); }
+.btn-xl:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.btn-small {
+  min-height: 36px; min-width: 36px; padding: 3px 11px;
+  background: transparent; border: 1px solid var(--line); border-radius: 10px;
+  color: var(--ink); font-size: 14.4px; font-weight: 600; text-align: center;
+}
+.btn-small:hover { border-color: var(--accent); }
+.btn-small:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.btn-step {
+  min-height: 44px; min-width: 44px; padding: 0 6px;
+  background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px;
+  color: var(--ink); font-size: 19.2px; font-weight: 600; text-align: center;
+}
+.btn-step:hover { border-color: var(--accent); }
+.btn-step:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.btn-step:disabled { opacity: 0.45; }
+.journey-node {
+  min-height: 104px; padding: 11px 14px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+  color: var(--ink); font-size: 16px; text-align: start;
+}
+.journey-node:hover { border-color: var(--accent); }
+.journey-node:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.journey-node:disabled { opacity: 0.55; }
+.journey-done {
+  min-height: 104px; padding: 11px 14px;
+  background: var(--surface); border: 1px solid var(--ok); border-radius: 10px;
+  color: var(--ink); font-size: 16px; text-align: start;
+}
+.journey-done:hover { border-color: var(--accent); }
+.journey-done:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.journey-open {
+  min-height: 104px; padding: 11px 14px;
+  background: var(--surface); border: 2px solid var(--accent); border-radius: 10px;
+  color: var(--ink); font-size: 16px; text-align: start;
+}
+.journey-open:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.journey-mastery {
+  min-height: 104px; padding: 11px 14px;
+  background: var(--surface-2); border: 3px double var(--line); border-radius: 10px;
+  color: var(--ink); font-size: 16px; text-align: start;
+}
+.journey-mastery:hover { border-color: var(--accent); }
+.journey-mastery:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.journey-mastery:disabled { opacity: 0.55; }
+
+/* ------------------------------------------------------------- cards (detailed: the lacquered, lamplit finish) */
+.card-lacquer { background: linear-gradient(165deg, #fffdf7 0%, var(--card-face) 45%, #ebe3cf 100%); border-radius: 6px; }
+
+/* ------------------------------------------------------------- portrait phones: the compact top bar */
+.btn-hud-sm {
+  min-height: 44px; min-width: 44px; padding: 8px 8px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px;
+  color: var(--ink); font-size: 12.8px; font-weight: 600; text-align: center;
+}
+.btn-hud-sm:hover { border-color: var(--accent); }
+.btn-hud-sm:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.banner-sm { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 4px 8px; }
+.banner-you-sm { background: var(--accent); border: 1px solid var(--accent); border-radius: 16px; padding: 4px 8px; }
+.banner-text-sm { color: var(--ink-dim); font-size: 12.5px; font-weight: 700; text-align: center; }
+.banner-text-you-sm { color: var(--accent-ink); font-size: 12.5px; font-weight: 700; text-align: center; }

@@ -1,0 +1,63 @@
+# The menus on a desktop: Journey, Daily, Profile (guest name), How to play, Settings, the Challenges list and the lesson list.
+# viewport 1280x800@1
+until 600 =Daily challenge
+frames 60
+click =Journey
+until 300 Journey upriver
+frames 20
+save m-journey
+click =Back
+until 300 =Daily challenge
+frames 10
+click =Daily challenge
+until 300 Play today’s table
+frames 10
+save m-daily
+click =Back
+until 300 =Profile
+frames 10
+click =Profile
+until 300 Lifetime at the tables
+frames 10
+save m-profile
+click =Achievements
+until 300 Milestones from your time
+frames 10
+save m-achievements
+click =Back
+until 300 Lifetime at the tables
+frames 10
+click =Back
+until 300 =How to play
+frames 10
+click =How to play
+until 300 Hand rankings
+frames 30
+save m-help
+click =Back
+until 300 =Settings
+frames 10
+click =Settings
+until 300 Left-handed action tray
+frames 10
+save m-settings
+click =Back
+until 300 =Play
+frames 10
+click =Play
+until 300 Choose your table
+frames 10
+click Play Challenge
+until 300 Take your seat
+frames 10
+click =Take your seat
+until 300 Constrained tables
+frames 10
+save m-challenges
+click =Back
+until 300 Choose your table
+frames 10
+click Play Learn
+until 300 Lessons
+frames 10
+save m-lessons

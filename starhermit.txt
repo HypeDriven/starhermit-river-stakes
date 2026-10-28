@@ -1,11 +1,27 @@
 name=River Stakes
 description=Bet through community-card rounds, bluff opponents, and build the best five-card poker hand to win chips.
-launch=index.html
 owner=2712e04e-461b-4d23-81ae-e40b429128a8
+# The platform script: a finished ranked table (Daily, Challenge) posts the
+# player's final chips through it to the high-score board (range-checked).
 server=score-script.js
 cover=cover.jpg
 
-# Keyboard actions (KeyboardEvent.code; remappable via the platform controls API).
+# StarHermit engine script game: one package, played natively by the
+# StarHermit client and in browsers by the engine's web runtime. Browsers open
+# launch=index.html, the loader `npm run package` writes (it pins the engine
+# on wiki.starhermit.com by hash; never edit it). Re-run `npm run package`
+# after every change and commit index.html + starhermit-files.json.
+launch=index.html
+engine.api=1
+engine.entry=native/main.ts
+engine.version=1.20.0
+engine.minor=20
+engine.capabilities=platform,storage,clipboard
+
+# Keyboard actions (KeyboardEvent.code; players rebind keys and pads in the
+# runtime's Options). Every action is also a button in the action tray, for
+# the pointer, touch, or Tab and Enter.
+engine.group.fold=Table
 control.fold=KeyF | Fold
 control.call=KeyC+KeyX | Check / call
 control.raise=KeyB+KeyR | Bet / raise
@@ -16,3 +32,19 @@ control.pause=Escape | Pause / close panel
 control.prev=ArrowLeft | Previous action button
 control.next=ArrowRight | Next action button
 control.skip=KeyS | Skip to your next decision
+
+# Gamepad defaults (the browser build had none): the D-pad or left stick
+# moves the UI focus and South presses; the triggers fold and go all in, West
+# checks or calls, North bets or raises, the shoulders step through the
+# action buttons, Start pauses, Select undoes, the stick presses ask for a
+# hint and skip ahead.
+engine.gamepad.fold=LeftTrigger
+engine.gamepad.call=West
+engine.gamepad.raise=North
+engine.gamepad.allin=RightTrigger
+engine.gamepad.undo=Select
+engine.gamepad.hint=LeftStickPress
+engine.gamepad.pause=Start
+engine.gamepad.prev=LeftShoulder
+engine.gamepad.next=RightShoulder
+engine.gamepad.skip=RightStickPress

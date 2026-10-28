@@ -1,0 +1,37 @@
+# Learn lesson 1 by finger on a DPR-3 phone: the lesson list, Deal, the Objective drawer, then check or call
+# from the tray until the two-hand lesson table ends; the results and Next (lesson 2 starts).
+# viewport 390x844@3
+until 600 =Daily challenge
+frames 60
+touch =Play
+until 300 Choose your table
+frames 10
+touch Play Learn
+until 300 Lessons
+frames 10
+save l-lessons
+touch 1. Posting the Blinds
+until 600 =Deal
+frames 30
+save l-lesson
+touch =Deal
+frames 60
+save l-dealt
+touch =Objective
+frames 30
+save l-drawer
+touch =Objective
+frames 20
+repeat 3000 until Breakdown
+  key KeyS 1
+  frames 3
+  key KeyC 1
+  frames 3
+end
+frames 60
+save l-results
+expect Lesson complete
+touch =Next
+until 900 =Fold
+frames 30
+save l-lesson2

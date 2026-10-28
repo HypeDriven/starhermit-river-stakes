@@ -14,7 +14,7 @@ const unq = (s) => s.replace(/\\'/g, "'").replace(/\\"/g, '"');
 export function loadTables(root, file, globalName) {
   const sandbox = { self: {} };
   vm.runInNewContext(readFileSync(new URL(file, root), 'utf8'), sandbox);
-  return sandbox.self[globalName];
+  return sandbox.self[globalName] ?? sandbox[globalName];
 }
 
 /** English keys used in code: T('…'), N('…') (deferred), and T(c ? '…' : '…'). */

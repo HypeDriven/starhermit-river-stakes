@@ -1,0 +1,23 @@
+# Today's Daily on a phone held sideways (DPR 3): the Daily screen, the table, played out by finger (check or
+# call from the tray, S skipping the AI) to the results.
+# viewport 844x390@3
+until 600 =Daily challenge
+frames 60
+touch =Daily challenge
+until 300 Play today’s table
+frames 10
+save d-daily
+touch =Play today’s table
+until 600 Table status
+until 900 =Fold
+frames 60
+save d-table
+repeat 4000 until Breakdown
+  key KeyS 1
+  frames 3
+  key KeyC 1
+  frames 3
+end
+frames 60
+save d-results
+expect Result recorded for
