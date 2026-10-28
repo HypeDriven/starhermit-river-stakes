@@ -41,6 +41,15 @@ click =Settings
 until 300 Left-handed action tray
 frames 10
 save m-settings
+click =Emberdusk
+frames 10
+click =Firstlight
+frames 60
+save m-light
+click =Firstlight
+frames 10
+click =Emberdusk
+frames 30
 click =Back
 until 300 =Play
 frames 10

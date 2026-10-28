@@ -138,7 +138,7 @@ for (const v of views) {
       await page.getByRole('button', { name: 'Deal', exact: true }).first().waitFor({ timeout: 60000 });
       await page.waitForTimeout(1500);
       await shot('lesson');
-      await press('Deal');
+      await press('Deal').catch(() => undefined); // the table also deals on its own after 1.8 s
       await page.waitForTimeout(800);
       await shot('lesson-dealt');
       await press('Objective');
