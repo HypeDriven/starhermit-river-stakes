@@ -1,7 +1,6 @@
 // River Stakes — StarHermit platform chrome strings (sign-in, invite link, controls, leaderboard line)
 // in the nine supported locales, in the game language (js/i18n.js via ./lang.js).
-import { pickLocale } from './gfx-strings.js';
-import { lang } from './lang.js';
+import { lang, pickLocale } from './lang.js';
 
 const BASE = {
   'en-US': {

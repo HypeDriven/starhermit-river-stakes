@@ -11,6 +11,11 @@ const BET_PHASES = ['preflop', 'flop', 'turn', 'river'];
 const BET_CAP = 4; // 1 bet + 3 raises per round
 const LOG_CAP = 40;
 
+/** Deep copy of plain JSON state (no structuredClone in the engine's native interpreter). */
+function clone(state) {
+  return JSON.parse(JSON.stringify(state));
+}
+
 function err(code, message) {
   return { ok: false, error: { code, message } };
 }
@@ -530,7 +535,7 @@ export function applyCommand(state, command) {
       return err('BAD_PHASE', 'advance only valid in init/handEnd');
     }
     if (player.status === 'out') return err('ILLEGAL_ACTION', 'eliminated players cannot advance');
-    const s = structuredClone(state);
+    const s = clone(state);
     const events = [];
     advanceHand(s, events);
     s.tick += 1;
@@ -551,7 +556,7 @@ export function applyCommand(state, command) {
     }
   }
 
-  const s = structuredClone(state);
+  const s = clone(state);
   const events = [];
   applyAction(s, s.currentActor, la.type, la.amount ?? 0, events);
   s.tick += 1;
@@ -568,7 +573,7 @@ export function applyCommand(state, command) {
  * @returns {object}
  */
 export function getSnapshot(state, viewerId) {
-  const s = structuredClone(state);
+  const s = clone(state);
   const reveal = state.phase === 'showdown' || state.phase === 'handEnd' || state.phase === 'terminal';
   if (!reveal) {
     for (const p of s.players) {

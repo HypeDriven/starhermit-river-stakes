@@ -23,7 +23,8 @@ const MAX_SYNC_STEPS = 20000; // safety cap for synchronous AI pumps
 export class Session {
   /**
    * @param {object} opts { config, mode, allowUndo, aiDelay, autoAdvance,
-   *   autoAdvanceDelay, humanId, saveSnapshot?, onSnapshot?, onEvents?, onTurn? }
+   *   autoAdvanceDelay, humanId, saveSnapshot?, onSnapshot?, onEvents?, onTurn?,
+   *   clock?: { now(), setTimeout(cb, ms), clearTimeout(handle) } }
    */
   constructor(opts = {}) {
     if (!opts.config) throw new Error('Session requires opts.config');
@@ -39,6 +40,12 @@ export class Session {
     this._onEvents = typeof opts.onEvents === 'function' ? opts.onEvents : () => {};
     this._onTurn = typeof opts.onTurn === 'function' ? opts.onTurn : () => {};
     this._saveSnapshot = typeof opts.saveSnapshot === 'function' ? opts.saveSnapshot : null;
+    // Injectable clock: the engine client drives AI delays from its fixed
+    // steps (deterministic play scripts); the browser default is wall time.
+    const clock = opts.clock || {};
+    this._now = clock.now || (() => Date.now());
+    this._setTimeout = clock.setTimeout || ((cb, ms) => setTimeout(cb, ms));
+    this._clearTimeout = clock.clearTimeout || ((h) => clearTimeout(h));
 
     this._aiRng = new Rng((opts.config.seed >>> 0) || 0, 'ai');
     this._aiLevel = new Map();
@@ -54,7 +61,7 @@ export class Session {
     this._timers = new Set(); // { handle, fireAt, remaining, cb }
     this._paused = false;
     this._disposed = false;
-    this._startedAt = 0;
+    this._startedAt = null; // set by start() (an injected clock may start at 0)
     this._pausedAt = 0;
     this._pausedTotal = 0;
   }
@@ -64,7 +71,7 @@ export class Session {
     if (this._state || this._disposed) return this;
     this._state = createGame(this.config);
     this._history.push(this._state);
-    this._startedAt = Date.now();
+    this._startedAt = this._now();
     this._emit([]);
     this._scheduleNext();
     return this;
@@ -152,9 +159,9 @@ export class Session {
   pause() {
     if (this._paused || this._disposed) return;
     this._paused = true;
-    this._pausedAt = Date.now();
+    this._pausedAt = this._now();
     for (const t of this._timers) {
-      clearTimeout(t.handle);
+      this._clearTimeout(t.handle);
       t.remaining = Math.max(0, t.fireAt - this._pausedAt);
       t.handle = null;
     }
@@ -164,12 +171,12 @@ export class Session {
   resume() {
     if (!this._paused || this._disposed) return;
     this._paused = false;
-    this._pausedTotal += Date.now() - this._pausedAt;
-    const now = Date.now();
+    this._pausedTotal += this._now() - this._pausedAt;
+    const now = this._now();
     for (const t of this._timers) {
       const ms = t.remaining == null ? this.aiDelay : t.remaining;
       t.fireAt = now + ms;
-      t.handle = setTimeout(() => {
+      t.handle = this._setTimeout(() => {
         this._timers.delete(t);
         if (this._disposed || this._paused) return;
         t.cb();
@@ -223,7 +230,7 @@ export class Session {
       build: BUILD_VERSION,
       seed: this.config.seed,
       config: this.config,
-      createdAt: new Date().toISOString(),
+      createdAt: new Date(this._now()).toISOString(),
       commands: this._commands.map((c) => ({ ...c })),
       hashes: [...this._hashes],
       result: this._state ? this._state.terminal : null,
@@ -285,8 +292,8 @@ export class Session {
   // ---- internals ----
 
   _elapsed() {
-    if (!this._startedAt) return 0;
-    const now = this._paused ? this._pausedAt : Date.now();
+    if (this._startedAt == null) return 0;
+    const now = this._paused ? this._pausedAt : this._now();
     return Math.max(0, now - this._startedAt - this._pausedTotal);
   }
 
@@ -386,8 +393,8 @@ export class Session {
   }
 
   _schedule(cb, ms) {
-    const t = { handle: null, fireAt: Date.now() + ms, remaining: null, cb };
-    t.handle = setTimeout(() => {
+    const t = { handle: null, fireAt: this._now() + ms, remaining: null, cb };
+    t.handle = this._setTimeout(() => {
       this._timers.delete(t);
       if (this._disposed || this._paused) return;
       cb();
@@ -396,7 +403,7 @@ export class Session {
   }
 
   _clearTimers() {
-    for (const t of this._timers) if (t.handle) clearTimeout(t.handle);
+    for (const t of this._timers) if (t.handle) this._clearTimeout(t.handle);
     this._timers.clear();
   }
 }
