@@ -1,14 +1,14 @@
 # River Stakes
 
 A riverside card salon: fixed-limit Texas Hold'em played for pride, not money.
-A StarHermit engine script game (engine 1.23.0): a starhermit:scene salon under a
+A StarHermit engine script game (engine 1.24.0): a starhermit:scene salon under a
 starhermit:ui interface, over a deterministic rules engine. Played natively by the
 StarHermit client and in browsers by the engine's web runtime.
 
 ## Run
 
 ```bash
-starhermit .            # the StarHermit runtime (STARHERMIT=~/sh/runtime/1.23.0/…/starhermit)
+starhermit .            # the StarHermit runtime (STARHERMIT=~/sh/runtime/1.24.0/…/starhermit)
 npm run package         # after every change: the web loader index.html + starhermit-files.json
 ```
 
