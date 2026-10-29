@@ -14,9 +14,8 @@
 // session's snapshots (showSnapshot diffs and tweens what changed) and
 // events (playEvents: the event hierarchy's animation), as before.
 //
-// From three.js r160 (physically based lights): colours as written, the
-// punctual, hemisphere and ambient lights' intensities ÷ π (the engine takes
-// three's legacy units). render.js prefiltered `new RoomEnvironment(renderer)`
+// From three.js r160 (physically based lights): colours, light intensities,
+// the fitted shadow box and normalBias as written (minor 28). render.js prefiltered `new RoomEnvironment(renderer)`
 // (r160: the 900-candela room) with PMREM as the scene environment when
 // detailed; r160 scaled it by each material's envMapIntensity, so the port
 // gives every lit material the environment as its own envMap at that
@@ -251,14 +250,17 @@ const camera = new PerspectiveCamera(FRAMING.FOV, 1, 0.1, 200);
 const camPos = new Vector3(...FRAMING.CAM_POS), camTarget = new Vector3(...FRAMING.CAM_TARGET);
 const pushPos = new Vector3(...FRAMING.CAM_PUSH_POS), camPushTarget = new Vector3(...FRAMING.CAM_PUSH_TARGET);
 
-// --- lighting: one warm key + soft fills (r160 intensities ÷ π) ---
-const keyLight = new DirectionalLight(0xffe0b8, 2.6 / PI);
+// --- lighting: one warm key + soft fills (r160 intensities) ---
+const keyLight = new DirectionalLight(0xffe0b8, 2.6);
 keyLight.position.set(4, 7, 3);
 keyLight.castShadow = true;
 keyLight.shadow.bias = -0.0004;
-keyLight.shadow.normalBias = 1; // three's 0.02 world units; the engine's normal bias is in texels
-const hemi = new HemisphereLight(0xbcd4e6, 0x3a2c20, 0.85 / PI);
-const amb = new AmbientLight(0xfff2e0, 0.18 / PI);
+keyLight.shadow.normalBias = 0.02;
+// frustum fitted to the table, seats and the table's shadow on the deck
+Object.assign(keyLight.shadow.camera, { left: -3.6, right: 3.6, top: 3.4, bottom: -3.4, near: 4, far: 14 });
+keyLight.shadow.camera.updateProjectionMatrix();
+const hemi = new HemisphereLight(0xbcd4e6, 0x3a2c20, 0.85);
+const amb = new AmbientLight(0xfff2e0, 0.18);
 scene.add(keyLight, keyLight.target, hemi, amb);
 
 // shared textures
@@ -992,8 +994,8 @@ function applyEnvironment(): void {
   });
   for (const x of [...chipMatsPlain, ...chipMatsRich.flat()]) mats.add(x);
   for (const x of mats) if (x instanceof MeshStandardMaterial) x.envMap = env;
-  hemi.intensity = (env ? 0.5 : 0.85) / PI;
-  amb.intensity = (env ? 0.06 : 0.18) / PI;
+  hemi.intensity = env ? 0.5 : 0.85;
+  amb.intensity = env ? 0.06 : 0.18;
 }
 
 /* ------------------------------- theming ------------------------------- */
@@ -1064,7 +1066,8 @@ export function applyLook(next: Look): void {
   applyMotion();
   renderer.toneMapping = ACESFilmicToneMapping;
   // UnrealBloomPass(0.45, 0.35, 0.92): only the lantern globes, halos and bright glints bloom.
-  renderer.bloom = next.bloom ? { strength: 0.45, radius: 0.35, threshold: 0.92, resolution: next.budget.bloomRes } : null;
+  // r160 page: UnrealBloomPass 0.45 → 0.45² at minor 29 (r185 bloom).
+  renderer.bloom = next.bloom ? { strength: 0.45 * 0.45, radius: 0.35, threshold: 0.92, resolution: next.budget.bloomRes } : null;
   // GTAO radius 0.35, distance exponent 1.2, thickness 0.6, 16 / 8 samples and the denoise per tier; blend 0.75.
   renderer.ao = next.ao === "off" ? null : {
     blendIntensity: 0.75, radius: 0.35, distanceExponent: 1.2, thickness: 0.6, scale: 1,
@@ -1074,7 +1077,7 @@ export function applyLook(next: Look): void {
   // GradeShader on the composer's linear buffer: a 0.18 S-curve, saturation 1.08, cool shadows / warm highlights by a
   // smoothstep of luma from 0.15 to 0.8, a 0.2 vignette from 0.38 to 0.9 (wider than tall: 1.1 × 1).
   renderer.grade = next.grade ? {
-    space: "linear", contrast: 0.18, saturation: 1.08, split: [0.15, 0.8], shadows: [0.97, 0.99, 1.05], highlights: [1.05, 1.0, 0.95],
+    space: "linear", contrast: 0.18, saturation: 1.08, split: [0.15, 0.8], shadows: [0.97, 0.99, 1.05], highlights: [1.05, 1.0, 0.95], levels: [0.97, 0.015], overRange: "keep",
     vignette: { amount: 0.2, inner: 0.38, outer: 0.9, scale: [1.1, 1] },
   } : null;
   renderer.antialias = next.antialias;
@@ -1098,7 +1101,7 @@ function applyDetail(on: boolean): void {
 }
 function applyLights(): void {
   const n = detail && budget ? budget.lights : 0;
-  lanternLights.forEach((pl, i) => { pl.visible = i < n; pl.intensity = i < n ? 3 / PI : 0; });
+  lanternLights.forEach((pl, i) => { pl.visible = i < n; pl.intensity = i < n ? 3 : 0; });
 }
 function applyBudget(b: Budget): void {
   const prev = budget;
