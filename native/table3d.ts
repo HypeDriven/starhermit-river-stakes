@@ -1066,18 +1066,18 @@ export function applyLook(next: Look): void {
   applyMotion();
   renderer.toneMapping = ACESFilmicToneMapping;
   // UnrealBloomPass(0.45, 0.35, 0.92): only the lantern globes, halos and bright glints bloom.
-  // r160 page: UnrealBloomPass 0.45 → 0.45² at minor 29 (r185 bloom).
-  renderer.bloom = next.bloom ? { strength: 0.45 * 0.45, radius: 0.35, threshold: 0.92, resolution: next.budget.bloomRes } : null;
+  // r160 page: the engine's r160 bloom model at the page's strength (engine.minor 30).
+  renderer.bloom = next.bloom ? { model: "r160", strength: 0.45, radius: 0.35, threshold: 0.92, resolution: next.budget.bloomRes } : null;
   // GTAO radius 0.35, distance exponent 1.2, thickness 0.6, 16 / 8 samples and the denoise per tier; blend 0.75.
   renderer.ao = next.ao === "off" ? null : {
     blendIntensity: 0.75, radius: 0.35, distanceExponent: 1.2, thickness: 0.6, scale: 1,
     samples: next.ao === "high" ? 16 : 8, resolution: next.budget.aoRes,
     denoise: { lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: next.ao === "high" ? 6 : 4, rings: 2, samples: next.ao === "high" ? 16 : 8, radiusExponent: 2 },
   };
-  // GradeShader on the composer's linear buffer: a 0.18 S-curve, saturation 1.08, cool shadows / warm highlights by a
+  // GradeShader on the composer's linear buffer: a 0.18 smoothstep S-curve (contrastCurve "s"), saturation 1.08, cool shadows / warm highlights by a
   // smoothstep of luma from 0.15 to 0.8, a 0.2 vignette from 0.38 to 0.9 (wider than tall: 1.1 × 1).
   renderer.grade = next.grade ? {
-    space: "linear", contrast: 0.18, saturation: 1.08, split: [0.15, 0.8], shadows: [0.97, 0.99, 1.05], highlights: [1.05, 1.0, 0.95], levels: [0.97, 0.015], overRange: "keep",
+    space: "linear", contrastCurve: "s", contrast: 0.18, saturation: 1.08, split: [0.15, 0.8], shadows: [0.97, 0.99, 1.05], highlights: [1.05, 1.0, 0.95], levels: [0.97, 0.015], overRange: "keep",
     vignette: { amount: 0.2, inner: 0.38, outer: 0.9, scale: [1.1, 1] },
   } : null;
   renderer.antialias = next.antialias;
