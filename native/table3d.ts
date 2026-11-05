@@ -27,14 +27,14 @@
 import {
   ACESFilmicToneMapping, AdditiveBlending, AmbientLight, BackSide, BufferAttribute, BufferGeometry, CanvasTexture, CircleGeometry, Color,
   ConeGeometry, CylinderGeometry, DirectionalLight, DoubleSide, DynamicDrawUsage, Fog, Group, HemisphereLight, InstancedMesh,
-  LatheGeometry, Matrix4, Mesh, MeshBasicMaterial, MeshLambertMaterial, MeshPhysicalMaterial, MeshStandardMaterial, PMREMGenerator,
+  LatheGeometry, Matrix4, ParticleEmitter, Mesh, MeshBasicMaterial, MeshLambertMaterial, MeshPhysicalMaterial, MeshStandardMaterial, PMREMGenerator,
   PerspectiveCamera, PlaneGeometry, PointLight, Points, PointsMaterial, RepeatWrapping, RingGeometry, RoomEnvironment, SRGBColorSpace, Shape,
   ShapeGeometry, ShaderMaterial, SphereGeometry, Sprite, SpriteMaterial, TorusGeometry, Vector2, Vector3, renderer, scene,
   type Material, type Texture,
 } from "starhermit:scene";
 import { OffscreenCanvas, type OffscreenCanvasRenderingContext2D } from "starhermit:canvas";
 import type { GameEvent, Snapshot, Theme } from "./game.ts";
-import { CONFETTI_MAX, MOTE_MAX, type Budget, type Look } from "./quality.ts";
+import { MOTE_MAX, type Budget, type Look } from "./quality.ts";
 
 /* ------------------------------- Framing -------------------------------- */
 export const FRAMING = {
@@ -160,67 +160,37 @@ function shadeAs(old: Lit, tier: Budget["material"], authored: "standard" | "phy
 }
 
 /* ------------------------------- Particles ------------------------------- */
+/** The win spray: one emitter per colour (an emitter's colour is read for its live particles too). */
 class ConfettiPool {
-  max: number; cap: number; rng: () => number;
-  pos: Float32Array; vel: Float32Array; col: Float32Array; life: Float32Array;
-  points: Points; color = new Color();
-  constructor(max: number, dot: Texture, rng: () => number) {
-    this.max = max; this.cap = max; this.rng = rng;
-    this.pos = new Float32Array(max * 3); this.vel = new Float32Array(max * 3); this.col = new Float32Array(max * 3); this.life = new Float32Array(max);
-    for (let i = 0; i < max; i++) this.pos[i * 3 + 1] = -999;
-    const geo = new BufferGeometry();
-    geo.setAttribute("position", new BufferAttribute(this.pos, 3));
-    geo.setAttribute("color", new BufferAttribute(this.col, 3));
-    const mat = new PointsMaterial({ size: 0.07, map: dot, vertexColors: true, transparent: true, opacity: 0.95, depthWrite: false, sizeAttenuation: true });
-    this.points = new Points(geo, mat);
-    this.points.frustumCulled = false;
-    scene.add(this.points);
+  private mat: PointsMaterial;
+  private emitters: ParticleEmitter[] = [];
+  private cap = -1;
+  constructor(dot: Texture) {
+    this.mat = new PointsMaterial({ size: 0.07, map: dot, transparent: true, opacity: 0.95, depthWrite: false, sizeAttenuation: true });
   }
-  private attr(name: "position" | "color"): BufferAttribute { return this.points.geometry.getAttribute(name) as BufferAttribute; }
   burst(o: Vector3, count: number, colors: string[]): void {
-    let spawned = 0;
-    for (let i = 0; i < this.cap && spawned < count; i++) {
-      if (this.life[i]! > 0) continue;
-      spawned++;
-      const i3 = i * 3;
-      this.pos[i3] = o.x; this.pos[i3 + 1] = o.y + 0.05; this.pos[i3 + 2] = o.z;
-      const a = this.rng() * PI * 2;
-      const sp = 0.7 + this.rng() * 1.3;
-      this.vel[i3] = Math.cos(a) * sp * 0.6;
-      this.vel[i3 + 1] = 1.4 + this.rng() * 1.6;
-      this.vel[i3 + 2] = Math.sin(a) * sp * 0.6;
-      this.color.set(colors[(this.rng() * colors.length) | 0]!);
-      this.col[i3] = this.color.r; this.col[i3 + 1] = this.color.g; this.col[i3 + 2] = this.color.b;
-      this.life[i] = 0.9 + this.rng() * 0.7;
-    }
-    this.attr("position").needsUpdate = true;
-    this.attr("color").needsUpdate = true;
+    const n = Math.ceil(count / colors.length);
+    colors.forEach((color, i) => {
+      const e = this.emitters[i];
+      if (e) e.set({ color }).burst(n, [o.x, o.y + 0.05, o.z]);
+    });
   }
+  /** The budget over all colours (three a burst). */
   setCap(n: number): void {
-    this.cap = Math.max(0, Math.min(this.max, n));
-    for (let i = this.cap; i < this.max; i++) { this.life[i] = 0; this.pos[i * 3 + 1] = -999; }
-    this.points.geometry.setDrawRange(0, this.cap);
-    this.attr("position").needsUpdate = true;
+    if (n === this.cap) return;
+    this.cap = n;
+    for (const e of this.emitters) { scene.remove(e); e.dispose(); }
+    this.emitters = [0, 1, 2].map((i) => {
+      const e = new ParticleEmitter({
+        capacity: Math.max(1, Math.ceil(n / 3)), material: this.mat, seed: 0x51a7 + i, space: "local",
+        life: [0.9, 1.6], velocity: [0, 2.2, 0], velocitySpread: [0.9, 0.8, 0.9], gravity: [0, -3.2, 0],
+      });
+      e.frustumCulled = false;
+      scene.add(e);
+      return e;
+    });
   }
-  update(dt: number): void {
-    let any = false;
-    for (let i = 0; i < this.cap; i++) {
-      if (this.life[i]! <= 0) continue;
-      any = true;
-      this.life[i]! -= dt;
-      const i3 = i * 3;
-      if (this.life[i]! <= 0 || this.pos[i3 + 1]! < -1.2) { this.life[i] = 0; this.pos[i3 + 1] = -999; continue; }
-      this.vel[i3 + 1]! -= 3.2 * dt;
-      this.pos[i3]! += this.vel[i3]! * dt;
-      this.pos[i3 + 1]! += this.vel[i3 + 1]! * dt;
-      this.pos[i3 + 2]! += this.vel[i3 + 2]! * dt;
-    }
-    if (any) this.attr("position").needsUpdate = true;
-  }
-  clear(): void {
-    for (let i = 0; i < this.max; i++) { this.life[i] = 0; this.pos[i * 3 + 1] = -999; }
-    this.attr("position").needsUpdate = true;
-  }
+  clear(): void { for (const e of this.emitters) e.clear(); }
 }
 
 /* ------------------------------- state ---------------------------------- */
@@ -930,7 +900,7 @@ function layoutProps(): void {
   trees.instanceMatrix.needsUpdate = true;
 }
 
-const confetti = new ConfettiPool(CONFETTI_MAX, softDotTex, mulberry32(fnv1a("river-stakes-fx")));
+const confetti = new ConfettiPool(softDotTex);
 let confettiCap = 180;
 let particlesHigh = true;
 
@@ -1067,12 +1037,12 @@ export function applyLook(next: Look): void {
   renderer.toneMapping = ACESFilmicToneMapping;
   // UnrealBloomPass(0.45, 0.35, 0.92): only the lantern globes, halos and bright glints bloom.
   // r160 page: the engine's r160 bloom model at the page's strength (engine.minor 30).
-  renderer.bloom = next.bloom ? { model: "r160", strength: 0.45, radius: 0.35, threshold: 0.92, resolution: next.budget.bloomRes } : null;
+  renderer.bloom = next.bloom !== null ? { model: "r160", strength: 0.45, radius: 0.35, threshold: 0.92, resolution: next.bloom } : null;
   // GTAO radius 0.35, distance exponent 1.2, thickness 0.6, 16 / 8 samples and the denoise per tier; blend 0.75.
-  renderer.ao = next.ao === "off" ? null : {
+  renderer.ao = !next.ao ? null : {
     blendIntensity: 0.75, radius: 0.35, distanceExponent: 1.2, thickness: 0.6, scale: 1,
-    samples: next.ao === "high" ? 16 : 8, resolution: next.budget.aoRes,
-    denoise: { lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: next.ao === "high" ? 6 : 4, rings: 2, samples: next.ao === "high" ? 16 : 8, radiusExponent: 2 },
+    samples: next.ao.samples, resolution: next.ao.resolution,
+    denoise: { lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: next.ao.resolution >= 1 ? 6 : 4, rings: 2, samples: next.ao.denoiseSamples, radiusExponent: 2 },
   };
   // GradeShader on the composer's linear buffer: a 0.18 smoothstep S-curve (contrastCurve "s"), saturation 1.08, cool shadows / warm highlights by a
   // smoothstep of luma from 0.15 to 0.8, a 0.2 vignette from 0.38 to 0.9 (wider than tall: 1.1 × 1).
@@ -1419,7 +1389,6 @@ export function update(dt: number, w: number, h: number): void {
   camera.position.copy(v);
   v2.copy(camTarget).lerp(camPushTarget, push);
   camera.lookAt(v2);
-  confetti.update(dt);
   renderer.toneMappingExposure = exposure;
 }
 /** Whether the salon draws (hidden only while the runtime covers the window). */

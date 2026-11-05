@@ -28,7 +28,6 @@ export function drawScreens(): void {
   if (app.screen === "game") drawHud(L);
   else page(L);
   modals(L);
-  appToast(L);
   if (app.focusNext) {
     const age = frame().frame - app.openedFrame;
     if (age >= 1) ui.setFocus(app.focusNext);
@@ -516,14 +515,4 @@ function modalBody(m: string, w: number): void {
       ], w, 8);
       break;
   }
-}
-
-// ------------------------------------------------------------------ the app toast (ui.js notify off the table)
-function appToast(L: Layout): void {
-  const t = app.appToast;
-  if (!t) return;
-  const w = Math.min(0.9 * L.lw, 400, textWidth(t.text, "toast-text") + 42);
-  ui.place("app-toast", { anchor: "bottom", y: 24 }, () => {
-    ui.column("app-toast-box", () => para(t.text, w - 40, "toast-text", "app-toast-text"), { style: "app-toast", width: w, align: "center" });
-  });
 }

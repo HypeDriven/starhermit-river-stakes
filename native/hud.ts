@@ -27,10 +27,8 @@ import { lightTheme, token } from "./style.ts";
 // ------------------------------------------------------------------ layout
 export interface Layout { lw: number; lh: number; sc: number; kind: "wide" | "compact" | "phone" | "land" }
 export function layoutNow(): Layout {
-  const f = frame();
-  const sc = ui.preferences().scale;
-  const sa = f.safeArea;
-  const lw = Math.max(1, (f.width - sa.left - sa.right) / sc), lh = Math.max(1, (f.height - sa.top - sa.bottom) / sc);
+  const v = ui.viewport!();
+  const sc = v.scale, lw = Math.max(1, v.width), lh = Math.max(1, v.height);
   const land = lw > lh && lh <= 520 && lw < 1024;
   const kind = land ? "land" : lw >= 1024 ? "wide" : lw >= 640 ? "compact" : "phone";
   return { lw, lh, sc, kind };
@@ -69,9 +67,14 @@ export function button(b: Btn): void {
 }
 /** Buttons at their own widths in rows that wrap at `width` (flex-wrap). */
 export function flow(label: string, list: Btn[], width: number, gap = 8, justify: "start" | "center" = "start", grow = false): void {
+  const bw = (b: Btn): number => Math.min(width, b.width ?? buttonWidth(b.text, b.style ?? "btn"));
+  if (!grow) {
+    ui.row(label, () => { for (const b of list) button(b.width != null || bw(b) >= width ? { ...b, width: bw(b) } : b); }, { wrap: true, width, gap, justify, align: "center" });
+    return;
+  }
+  // stretching lines keep the packer: a wrapping row doesn't say which line a button is on
   const rows: Btn[][] = [[]];
   let used = 0;
-  const bw = (b: Btn): number => Math.min(width, b.width ?? buttonWidth(b.text, b.style ?? "btn"));
   for (const b of list) {
     const w = bw(b);
     if (rows[rows.length - 1]!.length && used + gap + w > width) { rows.push([]); used = 0; }
@@ -343,7 +346,7 @@ function tableZone(z: { x: number; y: number; w: number; h: number }, L: Layout)
   const centreH = 30 + 10 + cs.h * 1.0 + 4;
   ui.place("table-centre", { anchor: "top-start", x: z.x + z.w / 2 - Math.max(commW, potW) / 2, y: z.y + z.h / 2 - centreH / 2 }, () => {
     ui.column("centre", () => {
-      ui.row("pot-line", () => { ui.style("pot-chip").label("●"); ui.style("pot-text").id("pot-amount").label(potText); }, { style: "pot-line", spacing: 8, align: "center" });
+      ui.row("pot-line", () => { ui.style("pot-chip", { text: { font: "StarHermit Emoji" } }).label("●"); ui.style("pot-text").id("pot-amount").label(potText); }, { style: "pot-line", spacing: 8, align: "center" });
       ui.row("community", () => comm.forEach((c, i) => card(`comm-${i}`, c, { phone })), { spacing: 6.4, height: cs.h, align: "center" });
     }, { spacing: 10, width: Math.max(commW, potW), align: "center" });
   });

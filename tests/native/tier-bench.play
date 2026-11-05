@@ -1,0 +1,318 @@
+# Tier bench: a six-seat Practice table played by keys, from practice-desktop.play.
+until 600 =Daily challenge
+frames 60
+click =Play
+until 300 Choose your table
+frames 10
+click Play Practice
+until 300 Take your seat
+frames 10
+click =4 seats
+frames 10
+click =6 seats
+frames 10
+click =Take your seat
+until 900 =Fold
+frames 120
+measure start
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+key KeyS 1
+frames 3
+key KeyC 1
+frames 3
+measure stop

@@ -17,7 +17,7 @@
 // automatic deals (1.8 s), the speed challenges' clock and the toasts run on
 // a clock advanced 1/60 s per fixed step, so slow frames never change a
 // table and play scripts replay exactly.
-import { clipboard, frame, onFixedUpdate, onPreferencesChange, onRender, onResume, onStart, onSuspend, onUpdate, preferences, setFixedRate } from "starhermit:engine";
+import { clipboard, frame, onFixedUpdate, onPreferencesChange, onRender, onResume, onStart, onSuspend, onUpdate, preferences, setFixedRate, levelSettings } from "starhermit:engine";
 import { onAction } from "starhermit:input";
 import * as ui from "starhermit:ui";
 import { onSessionEnded, requestSignIn } from "starhermit:platform";
@@ -75,7 +75,6 @@ export const app = {
   raiseAmount: null as number | null,
   feed: [] as (() => string)[],
   toast: null as { text: () => string; until: number } | null,
-  appToast: null as { text: string; until: number } | null,
   results: null as Results | null,
   nextUp: null as { lesson?: Lesson; index?: number; stage?: Stage } | null,
   daily: null as Daily | null,
@@ -110,8 +109,7 @@ export function toast(text: () => string, assertive = false): void {
 /** ui.js notify: a confirmation on any screen. */
 export function notify(text: string): void {
   if (app.screen === "game") { toast(() => text); return; }
-  app.appToast = { text, until: clockMs + 4000 };
-  announce(text);
+  ui.toast!(text, { duration: 4, style: ["app-toast", "toast-text"], dismissible: false });
 }
 const pending: (() => void)[] = [];
 /** A widget's press, run once the frame's UI is built (state changes mid-build would break later widgets). */
@@ -766,7 +764,7 @@ export function signIn(): void { void requestSignIn().catch(() => undefined); }
 export function invite(): void {
   const link = platform.inviteLink();
   if (!link) return;
-  try { clipboard.writeText(link); notify(S("inviteCopied")); } catch { notify(S("inviteLink", { url: link })); }
+  try { clipboard.writeText(link); notify(S("inviteCopied")); } catch { notify(S("inviteLink", { link })); }
 }
 export function bestHandName(): string | null {
   const b = platform.save().progress.lifetime.bestHand;
@@ -819,17 +817,16 @@ onFixedUpdate(() => {
     void finish({ forceFail: N("Time expired — the clock beat you this run.") });
   }
   if (app.toast && app.toast.until < clockMs) app.toast = null;
-  if (app.appToast && app.appToast.until < clockMs) app.appToast = null;
 });
 
 // ------------------------------------------------------------------ boot and lifecycle
 let lookKey = "";
 function applyLook(): void {
   const f = frame();
-  const k = `${f.quality}:${f.levelIndex}`;
+  const k = f.level;
   if (k === lookKey) return;
   lookKey = k;
-  table3d.applyLook(lookFor(f.quality, f.levelIndex));
+  table3d.applyLook(lookFor(levelSettings(f.level)));
 }
 onStart(() => {
   setFixedRate(60);
