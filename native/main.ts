@@ -1,3 +1,4 @@
+import { withLanguageRender as __l10nRender } from "./l10n/menu.ts";
 // River Stakes on the StarHermit engine: the entry module (starhermit.txt
 // engine.entry), played natively by the StarHermit client and in browsers by
 // the engine's web runtime. The rules (js/rules/), content (js/content.js)
@@ -865,10 +866,14 @@ onUpdate((dt) => {
   applyTokens(shownTheme(), platform.options.palette, ui.preferences().highContrast);
   audio.update();
 });
-onRender(() => {
+onRender(__l10nRender(() => {
   drawScreens();
   for (const fn of pending.splice(0)) fn();
   const f = frame();
   table3d.update(frameDt, f.width, f.height);
   flushAnnouncements();
-});
+}));
+
+// localization-runtime:menu
+import { installLanguageMenu as __installLanguageMenu } from "./l10n/menu.ts";
+__installLanguageMenu(false);

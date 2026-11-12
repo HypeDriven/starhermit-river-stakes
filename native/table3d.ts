@@ -1,3 +1,5 @@
+// localization-runtime:attached
+import { localizedCanvasFont as __l10nCanvasFont } from "./l10n/font.ts";
 // The riverside card salon on starhermit:scene, as the browser build's
 // js/render.js drew it with three.js r160: the authored low-distortion
 // perspective shot (viewer always at the front; slow drift, an award-tier
@@ -414,15 +416,15 @@ function faceTexture(card: number): CanvasTexture {
   ctx.textAlign = "center"; ctx.textBaseline = "top";
   const corner = (x: number, y: number, rot: number): void => {
     ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
-    ctx.font = "bold 58px serif";
+    ctx.font = __l10nCanvasFont("bold 58px serif");
     ctx.fillText(rankCh, 0, 0);
-    ctx.font = "52px serif";
+    ctx.font = __l10nCanvasFont("52px serif");
     ctx.fillText(suitCh, 0, 56);
     ctx.restore();
   };
   corner(44, 22, 0);
   corner(212, 338, PI);
-  ctx.font = "150px serif";
+  ctx.font = __l10nCanvasFont("150px serif");
   ctx.textBaseline = "middle";
   ctx.fillText(suitCh, 128, 186);
   t = srgb(c);
@@ -507,7 +509,7 @@ function labelTexture(text: string): CanvasTexture {
     roundRectPath(ctx, 4, 6, 248, 60, 14); ctx.stroke();
     ctx.globalAlpha = 1;
     ctx.fillStyle = palette.text!;
-    ctx.font = "bold 30px serif";
+    ctx.font = __l10nCanvasFont("bold 30px serif");
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
     ctx.fillText(text.slice(0, 22), 128, 37);
   }
@@ -701,7 +703,7 @@ const dealerButton = new Group();
   const { c, ctx } = makeCanvas(64, 64);
   ctx.fillStyle = "#f3eee2"; ctx.beginPath(); ctx.arc(32, 32, 30, 0, PI * 2); ctx.fill();
   ctx.fillStyle = "#26282e";
-  ctx.font = "bold 40px serif";
+  ctx.font = __l10nCanvasFont("bold 40px serif");
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   ctx.fillText("D", 32, 34);
   const top = new Mesh(new CircleGeometry(0.062, 24), new MeshBasicMaterial({ map: srgb(c) }));

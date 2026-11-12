@@ -1,3 +1,7 @@
+import { localizedStyle as __l10nStyle } from "./l10n/font.ts";
+import { localizedDrawOptions as __l10nDrawOptions } from "./l10n/font.ts";
+// localization-runtime:attached
+import { localizedFont as __l10nFont } from "./l10n/font.ts";
 // The table's HUD (js/ui.js _buildHud / updateGame and css/style.css .hud)
 // as starhermit:ui, built every frame over the salon: the top bar (turn
 // banner, Pause; the rail drawers' toggles on narrower windows), the left
@@ -40,7 +44,7 @@ export function textWidth(text: string, style: string, kind?: "button" | "headin
 /** Text up to `width` wide: one label when it fits, else a paragraph. */
 export function para(text: string, width: number, cls = "text", id?: string): void {
   if (!text) return;
-  let u = ui.style(cls);
+  let u = ui.style(__l10nStyle(cls));
   if (id) u = u.id(id);
   if (textWidth(text, cls) <= width) u.label(text);
   else u.paragraph(text, Math.max(20, width));
@@ -57,11 +61,11 @@ export function button(b: Btn): void {
   else if (b.width != null && buttonWidth(b.text, style) > b.width) {
     const inner = b.width - 38;
     const ink = style === "btn-primary" || style === "btn-xl" || style === "btn-act-primary";
-    opts.content = () => { ui.style(ink ? "wrap-ink" : "wrap").paragraph(b.text, Math.max(20, inner)); };
+    opts.content = () => { ui.style(__l10nStyle(ink ? "wrap-ink" : "wrap")).paragraph(b.text, Math.max(20, inner)); };
   } else if (b.name && b.name !== b.text) opts.content = () => { ui.label(b.text); };
   const s: ui.Style = {};
   if (b.width != null) s.width = b.width;
-  if (ui.style(style, s).id(b.id).button(b.name ?? b.text, opts) && fresh()) {
+  if (ui.style(__l10nStyle(style), __l10nStyle(s)).id(b.id).button(b.name ?? b.text, opts) && fresh()) {
     later(() => { if (!b.quiet) audio.play("click"); b.act(); });
   }
 }
@@ -92,7 +96,7 @@ export function flow(label: string, list: Btn[], width: number, gap = 8, justify
 /** A box over a logical rectangle drawn by a placed role-none widget. */
 export function paint(id: string, x: number, y: number, w: number, h: number, cls: string): void {
   if (w <= 0 || h <= 0) return;
-  ui.place(id, { anchor: "top-start", x, y }, () => { ui.style(cls).widget("", { role: "none", size: { width: w, height: h } }); });
+  ui.place(id, { anchor: "top-start", x, y }, () => { ui.style(__l10nStyle(cls)).widget("", { role: "none", size: { width: w, height: h } }); });
 }
 
 // ------------------------------------------------------------------ cards (ui.js _cardEl, css .card)
@@ -101,7 +105,7 @@ export function cardSize(o: CardOpts): { w: number; h: number; font: number } {
   const font = o.small ? 15.2 : 17.6;
   const em = o.small ? (o.phone ? 1.6 : 1.9) : o.phone ? 2.1 : 2.5;
   const w = em * font;
-  return { w, h: (w * 7) / 5, font };
+  return { w, h: (w * 7) / 5, font: __l10nFont(font) };
 }
 /** One card as a widget (role image named "Ace of Spades"): the face's rank and suit (red suits with a corner diamond), or the back. */
 export function card(id: string, c: number | null, o: CardOpts = {}): void {
@@ -135,8 +139,8 @@ export function card(id: string, c: number | null, o: CardOpts = {}): void {
       const red = suit === 1 || suit === 2;
       const ink = red ? token("suit-red") : token("suit-black");
       const fs = font * s;
-      draw.text(rank, r.x + r.width / 2, r.y + r.height / 2 - fs * 0.95, { size: fs, color: ink, align: "center", weight: "800" });
-      draw.text(SUIT_SYMBOLS[suit]!, r.x + r.width / 2, r.y + r.height / 2 + fs * 0.02, { size: fs * 0.85, color: ink, align: "center" });
+      draw.text(rank, r.x + r.width / 2, r.y + r.height / 2 - fs * 0.95, __l10nDrawOptions({ size: fs, color: ink, align: "center", weight: "800" }));
+      draw.text(SUIT_SYMBOLS[suit]!, r.x + r.width / 2, r.y + r.height / 2 + fs * 0.02, __l10nDrawOptions({ size: fs * 0.85, color: ink, align: "center" }));
       if (red) {
         const d = 0.32 * fs * 0.75, cx = r.x + r.width * 0.9 - d, cy = r.y + r.height * 0.08 + d;
         draw.polygon([[cx, cy - d], [cx + d, cy], [cx, cy + d], [cx - d, cy]], ink);
@@ -229,9 +233,9 @@ export function keyRows(): { label: string; desc: string }[] {
   return KEY_ACTIONS.map((k) => ({ label: k.label ? T(k.label) : (k.action ?? []).map(keysFor).filter(Boolean).join(" / "), desc: T(k.desc) })).filter((r) => r.label);
 }
 function shortcutBar(w: number): void {
-  ui.style("rule-sep").widget("", { role: "none", size: { width: w, height: 1 } });
+  ui.style(__l10nStyle("rule-sep")).widget("", { role: "none", size: { width: w, height: 1 } });
   ui.row("shortcut-head", () => {
-    ui.style("shortcut-title").label(T("Shortcuts"));
+    ui.style(__l10nStyle("shortcut-title")).label(T("Shortcuts"));
     ui.spacer();
     button({ id: "btn-hide-shortcuts", text: T("Hide shortcuts"), style: "btn-small", act: () => platform.setOption("shortcutHints", false) });
   }, { width: w, align: "center" });
@@ -240,7 +244,7 @@ function shortcutBar(w: number): void {
 export function kbdRow(id: string, key: string, desc: string, w: number, cls: string): void {
   const kw = textWidth(key, "kbd-text") + 16;
   ui.row(id, () => {
-    ui.row(`${id}-k`, () => ui.style("kbd-text").label(key), { style: "kbd" });
+    ui.row(`${id}-k`, () => ui.style(__l10nStyle("kbd-text")).label(key), { style: "kbd" });
     para(desc, Math.max(40, w - kw - 6), cls, `${id}-d`);
   }, { width: w, spacing: 6, align: "start" });
 }
@@ -262,7 +266,7 @@ function rightRail(w: number): void {
   }, { spacing: 4, width: w });
 }
 function status(id: string, k: string, v: string, w: number): void {
-  ui.row(id, () => { ui.style("status-k").label(k + ":"); ui.style("status-v").id(`${id}-v`).label(v); }, { width: w, spacing: 6 });
+  ui.row(id, () => { ui.style(__l10nStyle("status-k")).label(k + ":"); ui.style(__l10nStyle("status-v")).id(`${id}-v`).label(v); }, { width: w, spacing: 6 });
 }
 export function potTotal(): number {
   const snap = app.hud?.snap;
@@ -346,7 +350,7 @@ function tableZone(z: { x: number; y: number; w: number; h: number }, L: Layout)
   const centreH = 30 + 10 + cs.h * 1.0 + 4;
   ui.place("table-centre", { anchor: "top-start", x: z.x + z.w / 2 - Math.max(commW, potW) / 2, y: z.y + z.h / 2 - centreH / 2 }, () => {
     ui.column("centre", () => {
-      ui.row("pot-line", () => { ui.style("pot-chip", { text: { font: "StarHermit Emoji" } }).label("●"); ui.style("pot-text").id("pot-amount").label(potText); }, { style: "pot-line", spacing: 8, align: "center" });
+      ui.row("pot-line", () => { ui.style(__l10nStyle("pot-chip"), __l10nStyle({ text: { font: __l10nFont("StarHermit Emoji") } })).label("●"); ui.style(__l10nStyle("pot-text")).id("pot-amount").label(potText); }, { style: "pot-line", spacing: 8, align: "center" });
       ui.row("community", () => comm.forEach((c, i) => card(`comm-${i}`, c, { phone })), { spacing: 6.4, height: cs.h, align: "center" });
     }, { spacing: 10, width: Math.max(commW, potW), align: "center" });
   });
@@ -383,12 +387,12 @@ function seatPanel(p: Player, cx: number, cy: number, L: Layout): void {
   const hh = prev ? prev.height / L.sc : 100;
   const opacity = p.status === "out" ? 0.4 : p.status === "folded" ? 0.6 : 1;
   ui.place(`seat-${p.id}-at`, { anchor: "top-start", x: cx - w / 2, y: cy - hh / 2 }, () => {
-    const r = ui.style(cls, { opacity }).column(`seat-${p.id}`, () => {
+    const r = ui.style(__l10nStyle(cls), __l10nStyle({ opacity })).column(`seat-${p.id}`, () => {
       ui.row(`seat-${p.id}-row`, () => {
-        ui.style("seat-name").label(name);
-        for (const [box, text, label] of badges) ui.row(`seat-${p.id}-${box}`, () => ui.style(text).label(label), { style: box });
+        ui.style(__l10nStyle("seat-name")).label(name);
+        for (const [box, text, label] of badges) ui.row(`seat-${p.id}-${box}`, () => ui.style(__l10nStyle(text)).label(label), { style: box });
       }, { spacing: 6, align: "center", justify: "center", width: innerW });
-      ui.style("seat-chips").id(`seat-${p.id}-chips`).label(chips(p.chips));
+      ui.style(__l10nStyle("seat-chips")).id(`seat-${p.id}-chips`).label(chips(p.chips));
       ui.row(`seat-${p.id}-cards`, () => {
         if (p.cards) p.cards.forEach((c, i) => card(`seat-${p.id}-c${i}`, c, { small: true, phone: L.kind === "phone" }));
         else if (showCards) for (let i = 0; i < 2; i++) card(`seat-${p.id}-c${i}`, null, { small: true, phone: L.kind === "phone", label: T("Face-down cards") });
@@ -497,9 +501,9 @@ function hintButton(): void {
   const enabled = g.hintsEnabled || !!app.hint;
   const label = T("Hint");
   const w = buttonWidth(label, "btn-ghost");
-  const r = ui.style("btn-ghost").id(HINT_ID).widget(label, {
+  const r = ui.style(__l10nStyle("btn-ghost")).id(HINT_ID).widget(label, {
     role: "button", disabled: !enabled, size: { width: w, height: 44 },
-    draw: (rect, st) => draw.text(label, rect.x + rect.width / 2, rect.y + rect.height / 2 - 10 * st.scale, { size: 16 * st.scale, color: token("ink"), align: "center", weight: "600" }),
+    draw: (rect, st) => draw.text(label, rect.x + rect.width / 2, rect.y + rect.height / 2 - 10 * st.scale, __l10nDrawOptions({ size: 16 * st.scale, color: token("ink"), align: "center", weight: "600" })),
   });
   if (!enabled) return;
   if (platform.options.hintMode === "hold") {
@@ -510,7 +514,7 @@ function stepperWidth(sliderW: number): number { return textWidth(T("Raise amoun
 function stepperRow(sliderW: number, sep: boolean): void {
   const amount = chips(app.raiseAmount ?? 0);
   ui.row("raise-stepper", () => {
-    ui.style("raise-label").label(T("Raise amount"));
+    ui.style(__l10nStyle("raise-label")).label(T("Raise amount"));
     button({ id: "btn-step-minus", text: "−", name: T("Lower the bet"), style: "btn-step", act: () => undefined, disabled: true });
     ui.widget(T("Raise amount"), {
       role: "slider", disabled: true, value: app.raiseAmount ?? 0, min: app.raiseAmount ?? 0, max: app.raiseAmount ?? 0, size: { width: sliderW, height: 44 },
@@ -521,8 +525,8 @@ function stepperRow(sliderW: number, sep: boolean): void {
       },
     });
     button({ id: "btn-step-plus", text: "+", name: T("Raise the bet"), style: "btn-step", act: () => undefined, disabled: true });
-    ui.row("raise-value-box", () => ui.style("raise-value").id("raise-value").label(amount), { width: 50, justify: "end" });
-    if (sep) ui.style("tray-sep").widget("", { role: "none", size: { width: 1, height: 44 } });
+    ui.row("raise-value-box", () => ui.style(__l10nStyle("raise-value")).id("raise-value").label(amount), { width: 50, justify: "end" });
+    if (sep) ui.style(__l10nStyle("tray-sep")).widget("", { role: "none", size: { width: 1, height: 44 } });
   }, { spacing: GAP, align: "center" });
 }
 

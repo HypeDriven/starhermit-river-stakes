@@ -1,3 +1,7 @@
+import { localizedStyle as __l10nStyle } from "./l10n/font.ts";
+import { localizedDrawOptions as __l10nDrawOptions } from "./l10n/font.ts";
+// localization-runtime:attached
+import { openLocalizedOptions as __l10nOptions } from "./l10n/menu.ts";
 // The browser build's DOM screens (js/ui.js _screen_* and the modals) as
 // starhermit:ui, built every frame over the salon: title, modes, setup (and
 // the lesson list), Daily (with the board's standings), Journey, Challenges,
@@ -7,7 +11,16 @@
 // Language and the reduced-motion / contrast / text-size rows; the theme,
 // colour palette, left-handed tray, hint behaviour and shortcut bar stay the
 // game's settings.
-import { frame, openMenu } from "starhermit:engine";
+// The browser build's DOM screens (js/ui.js _screen_* and the modals) as
+// starhermit:ui, built every frame over the salon: title, modes, setup (and
+// the lesson list), Daily (with the board's standings), Journey, Challenges,
+// achievements, profile, How to play, Settings, the table's HUD (hud.ts),
+// results, and the pause menu with its Settings, How to play and leave
+// confirmation. The runtime's Options replace the old Audio, Graphics,
+// Language and the reduced-motion / contrast / text-size rows; the theme,
+// colour palette, left-handed tray, hint behaviour and shortcut bar stay the
+// game's settings.
+import { frame } from "starhermit:engine";
 import * as draw from "starhermit:draw";
 import { requestRebind } from "starhermit:input";
 import * as ui from "starhermit:ui";
@@ -86,7 +99,7 @@ function grid(id: string, n: number, w: number, min: number, gap: number, cell: 
 }
 function badge(id: string, text: string, kind: "badge" | "badge-ranked" | "badge-ok" | "badge-mastery" = "badge"): void {
   const t = kind === "badge" ? "badge-text" : `${kind}-text`;
-  ui.row(id, () => ui.style(t).label(text), { style: kind });
+  ui.row(id, () => ui.style(__l10nStyle(t)).label(text), { style: kind });
 }
 /** A check box row (a role "checkbox" widget: built-in check box labels don't wrap). */
 function toggleRow(id: string, label: string, on: boolean, w: number, set: (v: boolean) => void, disabled = false): void {
@@ -97,7 +110,7 @@ function toggleRow(id: string, label: string, on: boolean, w: number, set: (v: b
         const s = st.scale, box = 21.6 * s, bx = r.x + (r.width - box) / 2, by = r.y + (r.height - box) / 2;
         draw.roundRect(bx, by, box, box, 3 * s, on ? token("accent") : token("surface-2"));
         draw.strokeRoundRect(bx, by, box, box, 3 * s, on ? token("accent") : token("ink-dim"), 2 * s);
-        if (on) draw.text("✓", bx + box / 2, by + 1 * s, { size: 17 * s, color: token("accent-ink"), align: "center", weight: "bold" });
+        if (on) draw.text("✓", bx + box / 2, by + 1 * s, __l10nDrawOptions({ size: 17 * s, color: token("accent-ink"), align: "center", weight: "bold" }));
       },
     });
     para(label, w - 56, "text", `${id}-label`);
@@ -108,7 +121,7 @@ function toggleRow(id: string, label: string, on: boolean, w: number, set: (v: b
 function selectField(id: string, label: string, index: number, options: string[], w: number, set: (i: number) => void, fixed = false): void {
   ui.column(`${id}-field`, () => {
     para(label, w, "text", `${id}-label`);
-    const pick = ui.style(fixed ? { opacity: 0.45 } : {}).id(id).select(label, index, options, { width: Math.min(w, 672) } as ui.WidgetOptions);
+    const pick = ui.style(__l10nStyle(fixed ? { opacity: 0.45 } : {})).id(id).select(label, index, options, { width: Math.min(w, 672) } as ui.WidgetOptions);
     if (pick !== index && !fixed) later(() => set(pick));
   }, { spacing: 5, width: w });
 }
@@ -122,8 +135,8 @@ function titleScreen(L: Layout): void {
   ui.place("title", "center", () => {
     ui.column("title-card", () => {
       para(T("Pull up a chair by the river."), iw, "title-kicker", "title-kicker");
-      ui.style("title-logo", { text: { size: logoSize } }).id("title-logo").label("River Stakes");
-      ui.style("title-tag", { width: iw }).id("title-tag-box").paragraph(T("A riverside card salon. Fixed-limit Hold’em, played for pride alone."), iw);
+      ui.style(__l10nStyle("title-logo"), __l10nStyle({ text: { size: logoSize } })).id("title-logo").label("River Stakes");
+      ui.style(__l10nStyle("title-tag"), __l10nStyle({ width: iw })).id("title-tag-box").paragraph(T("A riverside card salon. Fixed-limit Hold’em, played for pride alone."), iw);
       button({ id: "btn-play", text: T("Play"), style: "btn-xl", act: () => show("modes", "mode-learn") });
       flow("title-secondary", [
         { id: "btn-daily", text: T("Daily challenge"), act: () => show("daily", "btn-daily-play") },
@@ -161,8 +174,8 @@ function modesScreen(w: number): void {
       para(T(m.name), iw, "h3", `mode-${id}-name`);
       para(T(m.rules), iw, "mode-rules", `mode-${id}-rules`);
       ui.row(`mode-${id}-meta`, () => {
-        ui.style("mode-meta").label(`⏱ ${T(m.duration)}`);
-        ui.style("mode-meta").label(`⚔ ${T(m.players)}`);
+        ui.style(__l10nStyle("mode-meta")).label(`⏱ ${T(m.duration)}`);
+        ui.style(__l10nStyle("mode-meta")).label(`⚔ ${T(m.players)}`);
         badge(`mode-${id}-badge`, m.ranked ? T("Ranked") : T("Unranked"), m.ranked ? "badge-ranked" : "badge");
       }, { spacing: 10, align: "center" });
       ui.spacer();
@@ -234,9 +247,9 @@ function dailyScreen(w: number): void {
     panel("standings", pw, (iw) => {
       para(T("River-wide standings"), iw, "h2", "standings-h");
       st.forEach((e, i) => ui.row(`standing-${i}`, () => {
-        ui.style("text").label(`${e.rank}. ${e.name || T("Player")}`);
+        ui.style(__l10nStyle("text")).label(`${e.rank}. ${e.name || T("Player")}`);
         ui.spacer();
-        ui.style("dim").label(String(e.value));
+        ui.style(__l10nStyle("dim")).label(String(e.value));
       }, { width: Math.min(iw, 400) }));
     });
   }
@@ -260,11 +273,11 @@ function journeyScreen(w: number): void {
       id: `stage-${st.id}`, text: T(st.title), name: `${T(st.title)} — ${stateName}, ${T("{n} stars", { n: stars })}`, style, width: cw,
       disabled: state === "locked", act: () => selectJourney(st.id),
       content: () => ui.column(`stage-${st.id}-face`, () => {
-        ui.style("journey-idx").label(String(st.index));
+        ui.style(__l10nStyle("journey-idx")).label(String(st.index));
         para(T(st.title), iw, "journey-name", `stage-${st.id}-name`);
-        ui.style("journey-stars").label("★".repeat(stars) + "☆".repeat(Math.max(0, 3 - stars)));
+        ui.style(__l10nStyle("journey-stars")).label("★".repeat(stars) + "☆".repeat(Math.max(0, 3 - stars)));
         if (st.mastery) badge(`stage-${st.id}-mastery`, T("Mastery"), "badge-mastery");
-        if (state === "locked") ui.style("journey-lock").label(`⚿ ${T("Locked")}`);
+        if (state === "locked") ui.style(__l10nStyle("journey-lock")).label(`⚿ ${T("Locked")}`);
       }, { spacing: 4, width: iw, align: "start" }),
     });
   });
@@ -358,7 +371,7 @@ function statsTable(id: string, rows: [string, string][], w: number): void {
   ui.column(id, () => rows.forEach(([k, v], i) => ui.row(`${id}-${i}`, () => {
     para(k, w * 0.62, "strong", `${id}-${i}-k`);
     ui.spacer();
-    ui.style("text").id(`${id}-${i}-v`).label(v);
+    ui.style(__l10nStyle("text")).id(`${id}-${i}-v`).label(v);
   }, { style: "stat-row", width: w, align: "center" })), { spacing: 0, width: w });
 }
 
@@ -406,7 +419,7 @@ function settingsPanel(w: number): void {
     para(T("Sound and graphics"), iw, "h2", "set-runtime-h");
     para(T("Volumes, mute, graphics quality, frame rate, language, text size, high contrast and reduced motion are in the StarHermit Options."), iw, "dim", "set-runtime-note");
     flow("set-runtime-btns", [
-      { id: "btn-options", text: T("Open Options"), act: () => openMenu() },
+      { id: "btn-options", text: T("Open Options"), act: () => __l10nOptions() },
       { id: "btn-rebind", text: T("Key bindings"), act: () => requestRebind() },
     ], iw, 8);
   });
