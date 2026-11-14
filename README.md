@@ -1,5 +1,7 @@
 # River Stakes
 
+**[▶ Play River Stakes on StarHermit](https://dashboard.starhermit.com/play/f824cd2f-0cd9-4508-a628-89827586e3c2)**
+
 A riverside card salon: fixed-limit Texas Hold'em played for pride, not money.
 A StarHermit engine script game (engine 1.24.0): a starhermit:scene salon under a
 starhermit:ui interface, over a deterministic rules engine. Played natively by the
