@@ -29,11 +29,12 @@ import { localizedCanvasFont as __l10nCanvasFont } from "./l10n/font.ts";
 import {
   ACESFilmicToneMapping, AdditiveBlending, AmbientLight, BackSide, BufferAttribute, BufferGeometry, CanvasTexture, CircleGeometry, Color,
   ConeGeometry, CylinderGeometry, DirectionalLight, DoubleSide, DynamicDrawUsage, Fog, Group, HemisphereLight, InstancedMesh,
-  LatheGeometry, Matrix4, ParticleEmitter, Mesh, MeshBasicMaterial, MeshLambertMaterial, MeshPhysicalMaterial, MeshStandardMaterial, PMREMGenerator,
+  LatheGeometry, Matrix4, Mesh, MeshBasicMaterial, MeshLambertMaterial, MeshPhysicalMaterial, MeshStandardMaterial, PMREMGenerator,
   PerspectiveCamera, PlaneGeometry, PointLight, Points, PointsMaterial, RepeatWrapping, RingGeometry, RoomEnvironment, SRGBColorSpace, Shape,
   ShapeGeometry, ShaderMaterial, SphereGeometry, Sprite, SpriteMaterial, TorusGeometry, Vector2, Vector3, renderer, scene,
   type Material, type Texture,
 } from "starhermit:scene";
+import { GPUParticleEmitter } from "starhermit:particles";
 import { OffscreenCanvas, type OffscreenCanvasRenderingContext2D } from "starhermit:canvas";
 import type { GameEvent, Snapshot, Theme } from "./game.ts";
 import { MOTE_MAX, type Budget, type Look } from "./quality.ts";
@@ -165,7 +166,7 @@ function shadeAs(old: Lit, tier: Budget["material"], authored: "standard" | "phy
 /** The win spray: one emitter per colour (an emitter's colour is read for its live particles too). */
 class ConfettiPool {
   private mat: PointsMaterial;
-  private emitters: ParticleEmitter[] = [];
+  private emitters: GPUParticleEmitter[] = [];
   private cap = -1;
   constructor(dot: Texture) {
     this.mat = new PointsMaterial({ size: 0.07, map: dot, transparent: true, opacity: 0.95, depthWrite: false, sizeAttenuation: true });
@@ -183,7 +184,7 @@ class ConfettiPool {
     this.cap = n;
     for (const e of this.emitters) { scene.remove(e); e.dispose(); }
     this.emitters = [0, 1, 2].map((i) => {
-      const e = new ParticleEmitter({
+      const e = new GPUParticleEmitter({
         capacity: Math.max(1, Math.ceil(n / 3)), material: this.mat, seed: 0x51a7 + i, space: "local",
         life: [0.9, 1.6], velocity: [0, 2.2, 0], velocitySpread: [0.9, 0.8, 0.9], gravity: [0, -3.2, 0],
       });

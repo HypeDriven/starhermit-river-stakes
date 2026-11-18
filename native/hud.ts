@@ -174,7 +174,6 @@ export function drawHud(L: Layout): void {
   tableZone(zone, L);
   topBar(L, pad, topH);
   tray(L, pad, trayH);
-  toastLine(L, pad, trayH);
   if (app.drawer && L.kind !== "wide") {
     const w = Math.min(320, 0.85 * L.lw);
     const y = top + topH + GAP + 2, hh = L.lh - y - pad;
@@ -528,17 +527,4 @@ function stepperRow(sliderW: number, sep: boolean): void {
     ui.row("raise-value-box", () => ui.style(__l10nStyle("raise-value")).id("raise-value").label(amount), { width: 50, justify: "end" });
     if (sep) ui.style(__l10nStyle("tray-sep")).widget("", { role: "none", size: { width: 1, height: 44 } });
   }, { spacing: GAP, align: "center" });
-}
-
-// ------------------------------------------------------------------ the toast line (css .toast-stack)
-function toastLine(L: Layout, pad: number, trayH: number): void {
-  const t = app.toast;
-  if (!t || app.modals.length) return;
-  const text = t.text();
-  const maxW = Math.min(0.9 * L.lw, 46 * 8.6);
-  const w = Math.min(maxW, textWidth(text, "toast-text") + 40);
-  const bottom = L.kind === "land" ? 70 : Math.max(104, trayH + pad + 6);
-  ui.place("toast", { anchor: "top-start", x: L.lw / 2 - w / 2, y: L.lh - bottom - 40 }, () => {
-    ui.column("toast-box", () => para(text, w - 38, "toast-text", "toast-text"), { style: "toast", width: w, align: "center" });
-  });
 }

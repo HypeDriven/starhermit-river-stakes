@@ -104,7 +104,7 @@ function flushAnnouncements(): void {
 }
 /** ui.js _toast: one consolidated notification line over the table (4 s). */
 export function toast(text: () => string, assertive = false): void {
-  app.toast = { text, until: clockMs + 4000 };
+  ui.toast!(text(), { duration: 4, position: "bottom", offset: 110, style: "toast", dismissible: false });
   announce(text(), assertive);
 }
 /** ui.js notify: a confirmation on any screen. */

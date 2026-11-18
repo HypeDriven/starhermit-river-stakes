@@ -1,3 +1,4 @@
+import { bindings } from "starhermit:input";
 import { localizedStyle as __l10nStyle } from "./l10n/font.ts";
 import { localizedDrawOptions as __l10nDrawOptions } from "./l10n/font.ts";
 // localization-runtime:attached
@@ -36,7 +37,7 @@ import { button, buttonWidth, card, drawHud, flow, kbdRow, keyRows, lastSize, la
 import { token } from "./style.ts";
 
 // ------------------------------------------------------------------ the frame
-export function drawScreens(): void {
+function drawScreensImmediate(): void {
   const L = layoutNow();
   if (app.screen === "game") drawHud(L);
   else page(L);
@@ -528,4 +529,11 @@ function modalBody(m: string, w: number): void {
       ], w, 8);
       break;
   }
+}
+
+export function drawScreens(): void {
+  if (app.screen !== "help") { drawScreensImmediate(); return; }
+  const actions = ["fold","call","raise","allin","undo","hint","pause","prev","next","skip"];
+  const version = JSON.stringify([(app as any).settings ?? (app as any).options ?? {}, (platform as any).options ?? {}, actions.map((action) => bindings(action))]);
+  ui.retain!("help-screen", version, drawScreensImmediate);
 }
