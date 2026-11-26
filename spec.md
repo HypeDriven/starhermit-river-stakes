@@ -1,6 +1,6 @@
 # River Stakes — Product and Game Specification
 
-**Document status:** running specification of the game as built: a StarHermit engine script game (TypeScript on the host API, engine 1.50.0, host API 1.50, engine.minor 39).
+**Document status:** running specification of the game as built: a StarHermit engine script game (TypeScript on the host API, engine 1.51.0, host API 1.51, engine.minor 39).
 **Game index:** 86  
 **Genre:** Turn-based card strategy  
 **Players:** 1 player against 1–5 AI seats (2–6 seats)  
@@ -10,7 +10,7 @@
 ## 0. On the StarHermit engine
 
 ### Implementation
-- `starhermit.txt`: `launch=index.html` (the engine's web loader, written by `npm run package` with `starhermit-files.json`), `engine.entry=native/main.ts`, `engine.version=1.50.0`, `engine.minor=50`, `engine.capabilities=platform,storage,clipboard`, the `control.*` keys and `engine.gamepad.*` defaults below, `server=score-script.js`.
+- `starhermit.txt`: `launch=index.html` (the engine's web loader, written by `npm run package` with `starhermit-files.json`), `engine.entry=native/main.ts`, `engine.version=1.51.0`, `engine.minor=51`, `engine.capabilities=platform,storage,clipboard`, the `control.*` keys and `engine.gamepad.*` defaults below, `server=score-script.js`.
 - Pure game modules (shared with the node tests, unchanged from the browser build but where noted): `js/rules/` (fixed-limit Hold'em engine: immutable commands, legal actions, snapshots, hash chain; the AI; the evaluator; seeded streams; state clones are JSON copies), `js/session.js` (AI seats, undo, replay envelope; its timers and clock are injectable), `js/content.js` (five themes, six lessons, the 40-stage Journey, six Challenges, the Daily generator, goals, achievements), `js/merge.js`, `js/progress.js` (the save document and its merge, the old cloud slot, the game's options), `js/strings.js` + `js/lang.js` + `js/sh-i18n.js` (localization).
 - Engine client: `native/main.ts` (the screen flow, modes, actions, constraints, lessons, results, the fixed-step clock, lifecycle), `native/screens.ts` (title, modes, setup, Daily, Journey, Challenges, achievements, profile, How to play, Settings, results, the pause menu and its panels), `native/hud.ts` (the table's HUD, seats and cards, tray), `native/table3d.ts` (the salon), `native/audio.ts`, `native/platform.ts`, `native/style.ts` (tokens per theme, palette and contrast), `native/quality.ts`, `native/i18n.ts`, `native/game.ts` (types over the js modules).
 - Time is the runtime's fixed steps (60 Hz): the AI's 650 ms delays, the 1.8 s automatic deals, speed-challenge clocks, elapsed time and toasts run on a clock advanced 1/60 s per step, so slow frames never change a table and play scripts replay exactly. Practice tables are seeded from the platform clock and a counter.
@@ -266,9 +266,9 @@ The string tables include complete regional variants for `fr-BE`, `de-BE`, `en-S
 
 <!-- regional-localization:end -->
 
-## Engine 1.50.0
+## Engine 1.51.0
 
-Browser play uses the WebGPU-only StarHermit 1.50.0 web runtime. Automatic ray-traced shadows are enabled on supported Vulkan devices, with mapped-shadow fallbacks elsewhere. Packaging creates block-compressed runtime textures and compressed glTF copies, retaining original image fallbacks.
+Browser play uses the WebGPU-only StarHermit 1.51.0 web runtime. Automatic ray-traced shadows are enabled on supported Vulkan devices, with mapped-shadow fallbacks elsewhere. Packaging creates block-compressed runtime textures and compressed glTF copies, retaining original image fallbacks.
 
 The help screen replays through retained native UI while its contents, options, layout and key bindings are unchanged.
 
