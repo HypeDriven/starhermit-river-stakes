@@ -12,7 +12,7 @@
     "metadataSource": "starhermit.txt",
     "createdAt": "2026-09-01T07:01:06.57155+00:00",
     "coverArtSource": "manifest",
-    "coverArtUpdatedAt": "2026-11-23T17:02:33.627471+00:00",
+    "coverArtUpdatedAt": "2026-11-26T15:24:01.790125+00:00",
     "submittedByUserId": "2712e04e-461b-4d23-81ae-e40b429128a8",
     "submittedByUsername": "starhermit",
     "hosting": {
@@ -22,9 +22,9 @@
       "pinnedCommitSha": null,
       "deployedCommitSha": null,
       "deployError": null,
-      "deployedAt": "2026-11-23T17:02:33.597961+00:00",
+      "deployedAt": "2026-11-26T15:24:01.778357+00:00",
       "externalLaunchUrl": null,
-      "engineVersion": "1.47.0",
+      "engineVersion": "1.50.0",
       "deployWarning": null
     },
     "description": "Bet through community-card rounds, bluff opponents, and build the best five-card poker hand to win chips.",
@@ -36,19 +36,19 @@
     "links": [],
     "isDisabled": false
   },
-  "publishedAt": "2026-11-23T17:02:33.774Z",
-  "sourceCommit": "6ea126df97656abcaad6b26e7606e004f54709ed",
-  "bytesReceived": 2270858,
-  "archiveSha256": "f791c724d84df4e8e76912ce36c8f4333eca9c5b6bc717bb1a3f827972d9ed4b",
+  "publishedAt": "2026-11-26T15:24:00.854Z",
+  "sourceCommit": "123c118f1750d47332d34a5cb202a319c32a234e",
+  "bytesReceived": 2270842,
+  "archiveSha256": "b8d9d3222523d8fe22d117b095e2632ac0ba9a5616d338c28064a5fde3658e7a",
   "indexSha256": "a513109ffc568f703717dc5c7c24aa5a3d351762444b9fba175d1d8af95c2a85",
   "result": {
     "clientPublished": true,
     "serverImageLoaded": false,
     "imageDigest": null,
-    "bytesReceived": 2270858,
+    "bytesReceived": 2270842,
     "mode": "replace",
     "filesRemoved": 0,
-    "engineVersion": "1.47.0",
+    "engineVersion": "1.50.0",
     "deployWarning": null
   },
   "liveVerification": {
